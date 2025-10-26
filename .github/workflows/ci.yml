@@ -14,7 +14,10 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      TURBO_TELEMETRY_DISABLED: '1'
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Checkout
         uses: actions/checkout@v4
