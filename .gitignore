@@ -11,3 +11,7 @@ expo
 apps/web/.env.local
 apps/mobile/.env
 
+
+.env*
+.turbo/
+
