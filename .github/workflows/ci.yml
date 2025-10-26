@@ -1,73 +1,62 @@
-name: CI
+name: CI (lint, typecheck, build)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "main" ]
 
-# Aynı branch'te paralel CI'ları iptal ederek hızlı geri bildirim
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   ci:
+    name: Lint • Typecheck • Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # Node + pnpm kurulumu (pnpm cache entegre)
-      - name: Setup Node
+      - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
-      - name: Install pnpm
+      # 👇 EKSİK OLAN ADIM: pnpm'i kur
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.19.0
+          version: 9
           run_install: false
 
-      # pnpm store cache (daha hızlı kurulum)
+      - name: Show versions
+        run: |
+          node -v
+          pnpm -v
+
       - name: Get pnpm store path
-        id: pnpm-store
+        id: pnpm-cache
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - name: Cache pnpm store
+      - name: Restore pnpm cache
         uses: actions/cache@v4
         with:
-          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies
+      - name: Install deps (workspace root)
         run: pnpm install --frozen-lockfile
 
-      # Turbo cache: node_modules dışı build çıktıları için
-      - name: Cache turborepo
-        uses: actions/cache@v4
-        with:
-          path: |
-            .turbo
-            **/.turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
-      # Çevre değişkenleri: build’lerin telemetrisini kapat
-      - name: Set CI envs
-        run: |
-          echo "NEXT_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
-          echo "TURBO_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
-          echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
-
-      # Lint / Typecheck / Build sıralı çalıştır
       - name: Lint
         run: pnpm -w lint
 
