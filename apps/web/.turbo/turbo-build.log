@@ -3,21 +3,27 @@
 > next build
 
    ▲ Next.js 16.0.0 (Turbopack)
+   - Environments: .env.local
 
    Creating an optimized production build ...
- ✓ Compiled successfully in 3.4s
+ ✓ Compiled successfully in 3.2s
    Running TypeScript ...
    Collecting page data ...
-   Generating static pages (0/4) ...
-   Generating static pages (1/4) 
-   Generating static pages (2/4) 
-   Generating static pages (3/4) 
- ✓ Generating static pages (4/4) in 737.8ms
+   Generating static pages (0/8) ...
+   Generating static pages (2/8) 
+   Generating static pages (4/8) 
+   Generating static pages (6/8) 
+ ✓ Generating static pages (8/8) in 832.9ms
    Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
-└ ○ /_not-found
+├ ○ /_not-found
+├ ○ /components-demo
+├ ○ /explore
+├ ○ /messages
+├ ○ /profile
+└ ○ /wardrobe
 
 
 ○  (Static)  prerendered as static content

@@ -1,0 +1,4 @@
+
+> @sg/ai@ typecheck C:\Users\Yusuf\Desktop\sosyal-gardrop\workers\ai
+> tsc -p tsconfig.json --noEmit
+
