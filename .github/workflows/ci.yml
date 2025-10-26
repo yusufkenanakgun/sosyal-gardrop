@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Aynı branch'te paralel CI'ları iptal ederek hızlı geri bildirim
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -20,20 +19,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Node + pnpm kurulumu (pnpm cache entegre)
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
+      # 1) pnpm'i önce kur
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.19.0
           run_install: false
 
-      # pnpm store cache (daha hızlı kurulum)
+      # 2) Node'u kur ve pnpm cache'i etkinleştir
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      # 3) pnpm store cache
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -49,7 +49,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Turbo cache: node_modules dışı build çıktıları için
       - name: Cache turborepo
         uses: actions/cache@v4
         with:
@@ -60,14 +59,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # Çevre değişkenleri: build’lerin telemetrisini kapat
       - name: Set CI envs
         run: |
           echo "NEXT_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
           echo "TURBO_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
           echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
 
-      # Lint / Typecheck / Build sıralı çalıştır
       - name: Lint
         run: pnpm -w lint
 
