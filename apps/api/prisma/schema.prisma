@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  passwordHash    String
+  name            String?
+  avatarUrl       String?
+  bio             String?
+  bodyProfileJSON Json?
+  createdAt       DateTime       @default(now())
+  WardrobeItems   WardrobeItem[]
+}
+
+model WardrobeItem {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String
+  brand        String?
+  color        String?
+  material     String?
+  season       String[]
+  styleTags    String[]
+  size         String?
+  imageUrl     String
+  bgRemovedUrl String?
+  labelsJSON   Json?
+  embedding    Bytes?
+  createdAt    DateTime @default(now())
+
+  User User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+}
