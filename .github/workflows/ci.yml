@@ -13,7 +13,8 @@ jobs:
 
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      NODE_ENV: "production"
+      CI: "true"
+      # Build-time'da gerçek bağlantı yapmasın diye dummy env'ler
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sw_dev_dummy"
       REDIS_URL: "redis://localhost:6379"
       S3_ENDPOINT: "http://localhost:9000"
@@ -22,30 +23,31 @@ jobs:
       S3_BUCKET: "sw-media"
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔹 1️⃣ Önce pnpm'i kur
+      # Node önce kurulmalı, pnpm cache ile birlikte
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          check-latest: true
+          cache: "pnpm"
+
+      # pnpm'i kur
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.19.0
           run_install: false
 
-      # 🔹 2️⃣ Ardından Node'u kur (cache ile birlikte)
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "pnpm"
-
-      # 🔹 3️⃣ PATH kontrolü (debug amaçlı)
+      # (Opsiyonel) pnpm doğrula
       - name: Verify pnpm installation
         run: |
           which pnpm
           pnpm --version
 
-      # 🔹 4️⃣ Cache turbo
+      # Turbo cache (opsiyonel ama hızlı)
       - name: Restore Turbo Cache
         uses: actions/cache@v4
         with:
@@ -54,27 +56,25 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-
 
-      # 🔹 5️⃣ Bağımlılıkları yükle
+      # Lock dosyasını kullanarak kurulum
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 🔹 6️⃣ Lint
       - name: Lint
         run: pnpm -w lint
 
-      # 🔹 7️⃣ Typecheck
       - name: Typecheck
         run: pnpm -w typecheck
 
-      # 🔹 8️⃣ Prisma generate (api paketi)
-      - name: Prisma Generate
+      - name: Prisma Generate (API)
         run: pnpm --filter @sg/api prisma:gen
 
-      # 🔹 9️⃣ Build
+      # NODE_ENV sadece build adımında production
       - name: Build
+        env:
+          NODE_ENV: "production"
         run: pnpm -w build
 
-      # 🔹 10️⃣ Cache kaydet
       - name: Save Turbo Cache
         uses: actions/cache@v4
         with:
