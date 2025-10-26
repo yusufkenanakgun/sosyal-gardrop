@@ -1,78 +1,76 @@
-name: CI
+name: CI (Lint / Typecheck / Build)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main, master ]
-
-# Aynı branch'te paralel CI'ları iptal ederek hızlı geri bildirim
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ "main" ]
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    name: Lint • Typecheck • Build
+
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      CI: "true"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sw_dev_dummy"
+      REDIS_URL: "redis://localhost:6379"
+      S3_ENDPOINT: "http://localhost:9000"
+      S3_ACCESS_KEY: "minioadmin"
+      S3_SECRET_KEY: "minioadmin"
+      S3_BUCKET: "sw-media"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Node + pnpm kurulumu (pnpm cache entegre)
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install pnpm
+      # 1) pnpm önce kurulsun
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.19.0
           run_install: false
 
-      # pnpm store cache (daha hızlı kurulum)
-      - name: Get pnpm store path
-        id: pnpm-store
-        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      # 2) Node kurulumu (pnpm cache KULLANMA)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          check-latest: true
 
-      - name: Cache pnpm store
+      - name: Verify pnpm installation
+        run: |
+          which pnpm
+          pnpm --version
+
+      - name: Restore Turbo Cache
         uses: actions/cache@v4
         with:
-          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            turbo-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Turbo cache: node_modules dışı build çıktıları için
-      - name: Cache turborepo
-        uses: actions/cache@v4
-        with:
-          path: |
-            .turbo
-            **/.turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
-      # Çevre değişkenleri: build’lerin telemetrisini kapat
-      - name: Set CI envs
-        run: |
-          echo "NEXT_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
-          echo "TURBO_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
-          echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
-
-      # Lint / Typecheck / Build sıralı çalıştır
       - name: Lint
         run: pnpm -w lint
 
       - name: Typecheck
         run: pnpm -w typecheck
 
+      - name: Prisma Generate (API)
+        run: pnpm --filter @sg/api prisma:gen
+
       - name: Build
+        env:
+          NODE_ENV: "production"
         run: pnpm -w build
+
+      - name: Save Turbo Cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
