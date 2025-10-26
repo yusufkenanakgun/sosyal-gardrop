@@ -22,24 +22,30 @@ jobs:
       S3_BUCKET: "sw-media"
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          check-latest: true
-          cache: "pnpm"
-
-      # 🔹 pnpm'in gerçekten kurulmasını garanti eden resmi action
+      # 🔹 1️⃣ Önce pnpm'i kur
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
-      # 🔹 Cache node_modules + turbo (isteğe bağlı hız)
+      # 🔹 2️⃣ Ardından Node'u kur (cache ile birlikte)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      # 🔹 3️⃣ PATH kontrolü (debug amaçlı)
+      - name: Verify pnpm installation
+        run: |
+          which pnpm
+          pnpm --version
+
+      # 🔹 4️⃣ Cache turbo
       - name: Restore Turbo Cache
         uses: actions/cache@v4
         with:
@@ -48,21 +54,27 @@ jobs:
           restore-keys: |
             turbo-${{ runner.os }}-
 
+      # 🔹 5️⃣ Bağımlılıkları yükle
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 🔹 6️⃣ Lint
       - name: Lint
         run: pnpm -w lint
 
+      # 🔹 7️⃣ Typecheck
       - name: Typecheck
         run: pnpm -w typecheck
 
-      - name: Prisma Generate (API)
+      # 🔹 8️⃣ Prisma generate (api paketi)
+      - name: Prisma Generate
         run: pnpm --filter @sg/api prisma:gen
 
+      # 🔹 9️⃣ Build
       - name: Build
         run: pnpm -w build
 
+      # 🔹 10️⃣ Cache kaydet
       - name: Save Turbo Cache
         uses: actions/cache@v4
         with:
