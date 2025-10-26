@@ -1,0 +1,15 @@
+
+> @sg/web@0.1.0 dev C:\Users\Yusuf\Desktop\sosyal-gardrop\apps\web
+> next dev
+
+   ▲ Next.js 16.0.0 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.56.1:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1250ms
+ GET / 200 in 2.7s (compile: 2.5s, render: 240ms)
+ GET /explore 200 in 1537ms (compile: 1499ms, render: 38ms)
+ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+ GET /explore 200 in 28ms (compile: 4ms, render: 24ms)

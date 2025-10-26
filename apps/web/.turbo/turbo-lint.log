@@ -1,4 +1,4 @@
 
 > @sg/web@0.1.0 lint C:\Users\Yusuf\Desktop\sosyal-gardrop\apps\web
-> eslint . --ext .ts,.tsx
+> eslint --max-warnings=0 .
 
