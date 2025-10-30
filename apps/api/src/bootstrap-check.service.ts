@@ -7,6 +7,8 @@ export class BootstrapCheckService {
   constructor(private cfg: ConfigService) {
     this.logger.log(`DB: ${this.cfg.get('DATABASE_URL')}`);
     this.logger.log(`Redis: ${this.cfg.get('REDIS_URL')}`);
-    this.logger.log(`S3: ${this.cfg.get('S3_ENDPOINT')} bucket=${this.cfg.get('S3_BUCKET')}`);
+    this.logger.log(
+      `S3: ${this.cfg.get('S3_ENDPOINT')} bucket=${this.cfg.get('S3_BUCKET')}`,
+    );
   }
 }

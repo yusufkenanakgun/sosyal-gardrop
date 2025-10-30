@@ -1,29 +1,16 @@
-import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+// apps/mobile/app/modal.tsx
+import { useRouter } from "expo-router";
+import { View, Text, Pressable } from "react-native";
 
 export default function ModalScreen() {
+  const router = useRouter();
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
+    <View style={{ flex: 1, padding: 20, gap: 16, justifyContent: "center" }}>
+      <Text style={{ fontSize: 20, fontWeight: "700" }}>Modal</Text>
+      <Text>This is a modal screen.</Text>
+      <Pressable onPress={() => router.back()} style={{ padding: 12, backgroundColor: "#eee", borderRadius: 8 }}>
+        <Text>Close</Text>
+      </Pressable>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-});

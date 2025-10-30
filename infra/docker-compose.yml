@@ -1,6 +1,6 @@
 ﻿services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: sg_postgres
     restart: unless-stopped
     environment:
@@ -39,6 +39,7 @@
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3000,http://192.168.56.1:3000"
     ports:
       - "${MINIO_API_PORT}:9000"
       - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
@@ -49,11 +50,8 @@
       interval: 5s
       timeout: 3s
       retries: 20
-    # Windows'ta dosya izinleri sorun olursa uncomment et:
-    # user: "1000:1000"
 
 volumes:
   pgdata:
   redisdata:
   miniodata:
- 

@@ -4,10 +4,22 @@ dist
 coverage
 .env
 .env.local
-pnpm-lock.yaml
 .DS_Store
 expo
 .env
 apps/web/.env.local
 apps/mobile/.env
+apps/mobile/node_modules
 
+# build caches
+.turbo/
+apps/web/.turbo/
+apps/mobile/.turbo/
+
+# editor
+.vscode/
+.DS_Store
+
+# env
+*.env
+*.env.local
