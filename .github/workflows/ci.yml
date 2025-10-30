@@ -65,8 +65,11 @@ jobs:
 
       # ❌ Bu adım kaldırıldı: Set CI envs (NODE_OPTIONS'u $GITHUB_ENV'e yazmak hatalıydı)
 
-      - name: Lint
-        run: pnpm -w lint
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (root)
+        run: pnpm -w turbo run lint
 
       - name: Typecheck
         run: pnpm -w typecheck
