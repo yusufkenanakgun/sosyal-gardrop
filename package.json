@@ -16,7 +16,9 @@
     "mobile:dev": "pnpm --filter @sg/mobile start",
     "ai:dev": "pnpm --filter @sg/ai dev",
     "ai:build": "pnpm --filter @sg/ai build",
-    "ai:start": "pnpm --filter @sg/ai start"
+    "ai:start": "pnpm --filter @sg/ai start",
+    "db:generate": "pnpm --filter @sg/api prisma generate",
+    "db:migrate:deploy": "pnpm --filter @sg/api prisma migrate deploy"
   },
   "devDependencies": {
     "@eslint/js": "9",
