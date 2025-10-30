@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.19.0
@@ -34,8 +34,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
+      # Cache only the pnpm store (never node_modules)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -47,6 +47,13 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+
+      # Fix EACCES coming from a bad cached node_modules (do NOT cache node_modules)
+      - name: Clean mobile node_modules & fix permissions
+        run: |
+          rm -rf apps/mobile/node_modules
+          mkdir -p apps/mobile
+          chmod -R u+rwX apps/mobile
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -61,17 +68,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # (opsiyonel) Prisma kullanıyorsan generate adımı:
-      # - name: Prisma generate
-      #   run: pnpm -w prisma generate
-
-
-      # .github/workflows/ci.yml  (Lint'ten önce)
+      # Prisma (repo özelinde gerekli)
       - name: Prisma generate (@sg/api)
         working-directory: apps/api
         run: pnpm prisma generate
 
-      - name: Lint (root)
+      - name: Lint
         run: pnpm -w turbo run lint
 
       - name: Typecheck
