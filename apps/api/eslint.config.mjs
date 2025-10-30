@@ -1,28 +1,51 @@
-// apps/api/eslint.config.mjs
-import tseslint from 'typescript-eslint';
-import globals from 'globals';
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 
 export default [
-  // bu pakette lint dışı bırakılacaklar
-  { ignores: ['dist/**', 'node_modules/**', 'eslint.config.*', '*.cjs', '*.js'] },
+  // 0) ignore
+  { ignores: ["dist/**", "node_modules/**", ".eslintrc.*", "eslint.config.*"] },
 
-  // type-checked TS preset'leri
-  ...tseslint.configs.recommendedTypeChecked,
+  // 1) Sadece JS dosyalarına JS öneriler
+  { files: ["**/*.js", "**/*.mjs", "**/*.cjs"], ...js.configs.recommended },
 
+  // 2) Sadece TS dosyalarına (genel) TS öneriler – type-check'siz
+  ...tseslint.configs.recommended.map((cfg) => ({
+    ...cfg,
+    files: ["**/*.ts", "**/*.tsx"],
+  })),
+
+  // 3) TYPE-AWARE olan preset'i YALNIZCA src/** için uygula
+  ...tseslint.configs.recommendedTypeChecked.map((cfg) => ({
+    ...cfg,
+    files: ["src/**/*.ts", "src/**/*.tsx"], // << test/** hariç
+  })),
+
+  // 4) src/** için type-aware parserOptions
   {
-    files: ['**/*.ts'],
+    files: ["src/**/*.ts", "src/**/*.tsx"],
     languageOptions: {
-      parser: tseslint.parser,
       parserOptions: {
-        projectService: true,
-        project: ['./tsconfig.eslint.json'],   // test/** dahil
-        tsconfigRootDir: import.meta.dirname,
-        allowDefaultProject: true
+        project: ["./tsconfig.eslint.json"],
       },
-      globals: { ...globals.node }
     },
     rules: {
-      // paketine özgü kurallarını buraya ekleyebilirsin
-    }
-  }
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-redundant-type-constituents": "error",
+    },
+  },
+
+  // 5) test/** için TYPE-AWARE kapalı (ve gerekirse kural kapatma)
+  {
+    files: ["test/**/*.ts", "test/**/*.tsx"],
+    languageOptions: {
+      parserOptions: { project: null }, // type info yok
+    },
+    rules: {
+      // Güvenli olsun diye bu kuralı testlerde de kapatıyoruz
+      "@typescript-eslint/await-thenable": "off",
+    },
+  },
 ];
