@@ -1,17 +1,14 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { JwtPayload } from './types';
+import { isJwtPayload } from './jwt-payload';
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(
-  Strategy,
-  'jwt-refresh',
-) {
+export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor() {
-    const secret = process.env.JWT_REFRESH_SECRET;
+    const secret = process.env.JWT_SECRET;
     if (!secret) {
-      throw new Error('JWT_REFRESH_SECRET is not set');
+      throw new Error('JWT_SECRET is not set');
     }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -20,22 +17,10 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  validate(payload: unknown): JwtPayload {
-    const p = payload as Partial<JwtPayload> | null | undefined;
-
-    if (!p?.sub) {
+  validate(payload: unknown): { id: string; email?: string } {
+    if (!isJwtPayload(payload) || payload.typ !== 'refresh') {
       throw new UnauthorizedException('Invalid refresh token payload');
     }
-
-    return {
-      sub: String(p.sub),
-      email: typeof p.email === 'string' ? p.email : undefined,
-      id:
-        typeof p.id === 'string'
-          ? p.id
-          : p.id != null
-            ? String(p.id)
-            : undefined,
-    };
+    return { id: payload.sub, email: payload.email };
   }
 }

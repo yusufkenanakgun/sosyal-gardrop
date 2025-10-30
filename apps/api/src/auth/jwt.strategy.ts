@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { JwtPayload } from './types';
+import { isJwtPayload } from './jwt-payload';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -17,22 +17,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  validate(payload: unknown): JwtPayload {
-    const p = payload as Partial<JwtPayload> | null | undefined;
-
-    if (!p?.sub) {
+  // Passport 'validate' can receive unknown payload -> narrow safely
+  validate(payload: unknown): { id: string; email?: string } {
+    if (!isJwtPayload(payload) || (payload.typ && payload.typ !== 'access')) {
       throw new UnauthorizedException('Invalid access token payload');
     }
-
-    return {
-      sub: String(p.sub),
-      email: typeof p.email === 'string' ? p.email : undefined,
-      id:
-        typeof p.id === 'string'
-          ? p.id
-          : p.id != null
-            ? String(p.id)
-            : undefined,
-    };
+    return { id: payload.sub, email: payload.email };
   }
 }
