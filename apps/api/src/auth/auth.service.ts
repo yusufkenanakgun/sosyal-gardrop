@@ -16,6 +16,15 @@ type JwtPayload = {
   exp?: number;
 };
 
+function isJwtPayload(v: unknown): v is JwtPayload {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  const subOk = typeof o.sub === 'string';
+  const emailOk = o.email === undefined || typeof o.email === 'string';
+  const typOk = o.typ === undefined || o.typ === 'refresh' || o.typ === 'access';
+  return subOk && emailOk && typOk;
+}
+
 function parseTtl(input: string | number | undefined, fallbackSec: number): number {
   if (input == null) return fallbackSec;
   if (typeof input === 'number') return input;
@@ -91,13 +100,17 @@ export class AuthService {
     const ok = await bcrypt.compare(token, user.refreshTokenHash);
     if (!ok) throw new UnauthorizedException('Invalid token');
 
-    const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
-      secret: this.secret,
-    });
-    if (payload?.typ !== 'refresh') throw new UnauthorizedException('Invalid token');
+    // verifyAsync -> any döndürdüğü için önce unknown al
+    const raw: unknown = await this.jwt.verifyAsync(token, { secret: this.secret });
+
+    // type guard ile daralt
+    if (!isJwtPayload(raw) || raw.typ !== 'refresh') {
+      throw new UnauthorizedException('Invalid token');
+    }
 
     return this.issueTokens(user.id, user.email);
   }
+
 
   async logout(userId: string) {
     await this.users.setRefreshTokenHash(userId, null);
