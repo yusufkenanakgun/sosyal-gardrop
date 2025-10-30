@@ -1,4 +1,3 @@
-// users.service.ts
 import { Injectable } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { PrismaService } from '../prisma.service';

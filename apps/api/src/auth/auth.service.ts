@@ -31,7 +31,7 @@ function parseTtl(input: string | number | undefined, fallbackSec: number): numb
 
 @Injectable()
 export class AuthService {
-  private readonly secret = process.env.JWT_SECRET as string;
+  private readonly secret = String(process.env.JWT_SECRET ?? '');
   private readonly accessTtlSec = parseTtl(process.env.ACCESS_TOKEN_TTL, 900); // 15m
   private readonly refreshTtlSec = parseTtl(process.env.REFRESH_TOKEN_TTL, 604800); // 7d
 
