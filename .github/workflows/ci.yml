@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # package.json: "packageManager" sürümünü kullan
+      # package.json'daki packageManager sürümü kullanılacak
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: '20'
 
-      # Yalnızca pnpm store'u cache'le
+      # Yalnızca pnpm store'u cache'le (node_modules asla cache'lenmez)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -48,16 +48,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # 🛠 Sahiplik ve izinleri garanti altına al
-      - name: Fix workspace ownership & perms
+      # 🔧 Sert temizlik + sahiplik/izin düzeltme (root etkisi varsa kesin çözer)
+      - name: Hard reset mobile node_modules perms
         run: |
-          sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
-          umask 0022
-          # tüm node_modules klasörlerini temizle (cache'lemiyoruz)
-          find . -name node_modules -type d -prune -exec rm -rf {} +
-          # özellikle mobile için tekrar oluştur ve izinleri ver
-          mkdir -p apps/mobile/node_modules
-          chmod -R u+rwX . 
+          sudo rm -rf apps/mobile/node_modules
+          sudo mkdir -p apps/mobile/node_modules/.bin
+          sudo chown -R $USER:$USER apps/mobile
+          chmod -R u+rwX,go+rX apps/mobile
+          # Teşhis için (logda gör)
+          ls -ld apps/mobile apps/mobile/node_modules apps/mobile/node_modules/.bin
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
