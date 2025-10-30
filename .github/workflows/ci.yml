@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      CI: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
       TURBO_TELEMETRY_DISABLED: '1'
       NODE_OPTIONS: '--max-old-space-size=4096'
@@ -23,21 +24,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1) pnpm'i kur
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.19.0
           run_install: false
 
-      # 2) Node ve pnpm cache
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
 
-      # 3) pnpm store cache
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -63,10 +61,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # ❌ Bu adım kaldırıldı: Set CI envs (NODE_OPTIONS'u $GITHUB_ENV'e yazmak hatalıydı)
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+      # (opsiyonel) Prisma kullanıyorsan generate adımı:
+      # - name: Prisma generate
+      #   run: pnpm -w prisma generate
 
       - name: Lint (root)
         run: pnpm -w turbo run lint

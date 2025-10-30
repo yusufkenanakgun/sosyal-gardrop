@@ -101,7 +101,10 @@ export class AuthService {
     if (!ok) throw new UnauthorizedException('Invalid token');
 
     // verifyAsync -> any döndürdüğü için önce unknown al
-    const raw: unknown = await this.jwt.verifyAsync(token, { secret: this.secret });
+    const raw = await this.jwt.verifyAsync<JwtPayload>(token, { secret: this.secret });
+      if (raw.typ !== 'refresh') {
+        throw new UnauthorizedException('Invalid token');
+      }
 
     // type guard ile daralt
     if (!isJwtPayload(raw) || raw.typ !== 'refresh') {
