@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
@@ -7,6 +8,7 @@ import { z } from 'zod';
 import { BootstrapCheckService } from './bootstrap-check.service';
 import * as path from 'path';
 import * as fs from 'fs';
+import { WardrobeModule } from './wardrobe/wardrobe.module';
 import { FilesModule } from './modules/files/files.module'; // ✅ eklendi
 
 const envSchema = z.object({
@@ -56,6 +58,8 @@ if (existingEnvFiles.length === 0) {
 
 @Module({
   imports: [
+    AuthModule,
+    WardrobeModule,
     ConfigModule.forRoot({
       isGlobal: true,
       // Hiçbiri yoksa envFilePath vermiyoruz; sadece process.env kullanılır.

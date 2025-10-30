@@ -1,35 +1,28 @@
-// @ts-check
-import eslint from '@eslint/js';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import globals from 'globals';
+// apps/api/eslint.config.mjs
 import tseslint from 'typescript-eslint';
+import globals from 'globals';
 
-export default tseslint.config(
-  {
-    ignores: ['eslint.config.mjs'],
-  },
-  eslint.configs.recommended,
+export default [
+  // bu pakette lint dışı bırakılacaklar
+  { ignores: ['dist/**', 'node_modules/**', 'eslint.config.*', '*.cjs', '*.js'] },
+
+  // type-checked TS preset'leri
   ...tseslint.configs.recommendedTypeChecked,
-  eslintPluginPrettierRecommended,
+
   {
+    files: ['**/*.ts'],
     languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.jest,
-      },
-      sourceType: 'commonjs',
+      parser: tseslint.parser,
       parserOptions: {
         projectService: true,
+        project: ['./tsconfig.eslint.json'],   // test/** dahil
         tsconfigRootDir: import.meta.dirname,
+        allowDefaultProject: true
       },
+      globals: { ...globals.node }
     },
-  },
-  {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
-    },
-  },
-);
+      // paketine özgü kurallarını buraya ekleyebilirsin
+    }
+  }
+];

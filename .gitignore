@@ -10,3 +10,15 @@ expo
 apps/web/.env.local
 apps/mobile/.env
 
+# build caches
+.turbo/
+apps/web/.turbo/
+apps/mobile/.turbo/
+
+# editor
+.vscode/
+.DS_Store
+
+# env
+*.env
+*.env.local

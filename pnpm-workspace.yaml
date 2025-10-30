@@ -1,5 +1,9 @@
-﻿packages:
-  - "apps/*"
-  - "packages/*"
-  - "workers/*"
-  - "infra"
+packages:
+  - apps/*
+  - packages/*
+  - workers/*
+  - infra
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - bcrypt

@@ -1,45 +1,41 @@
-import { PropsWithChildren, useState } from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, TextProps, useColorScheme } from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+/**
+ * ThemedText – uygulama genelinde kullanılan metin bileşeni.
+ * `type` prop'u ile farklı yazı stilleri seçilebilir.
+ */
+type ThemedTextProps = TextProps & {
+  type?:
+    | "default"
+    | "title"
+    | "subtitle"
+    | "link"
+    | "error"
+    | "defaultSemiBold"; // eklendi
+};
 
-export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const theme = useColorScheme() ?? 'light';
+export function ThemedText({
+  type = "default",
+  style,
+  ...rest
+}: ThemedTextProps) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+
+  const baseStyle = {
+    color: isDark ? "#FFFFFF" : "#000000",
+  };
+
+  const variants: Record<NonNullable<ThemedTextProps["type"]>, any> = {
+    default: { fontSize: 16 },
+    title: { fontSize: 24, fontWeight: "700" },
+    subtitle: { fontSize: 18, opacity: 0.8 },
+    link: { textDecorationLine: "underline", color: "#3B82F6" },
+    error: { color: "#DC2626", fontWeight: "600" },
+    defaultSemiBold: { fontSize: 16, fontWeight: "600" }, // eklendi
+  };
 
   return (
-    <ThemedView>
-      <TouchableOpacity
-        style={styles.heading}
-        onPress={() => setIsOpen((value) => !value)}
-        activeOpacity={0.8}>
-        <IconSymbol
-          name="chevron.right"
-          size={18}
-          weight="medium"
-          color={theme === 'light' ? Colors.light.icon : Colors.dark.icon}
-          style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
-        />
-
-        <ThemedText type="defaultSemiBold">{title}</ThemedText>
-      </TouchableOpacity>
-      {isOpen && <ThemedView style={styles.content}>{children}</ThemedView>}
-    </ThemedView>
+    <Text style={[baseStyle, variants[type], style]} {...rest} />
   );
 }
-
-const styles = StyleSheet.create({
-  heading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  content: {
-    marginTop: 6,
-    marginLeft: 24,
-  },
-});

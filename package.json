@@ -21,6 +21,7 @@
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@types/node": "^20.14.12",
+    "babel-plugin-module-resolver": "^5.0.2",
     "husky": "^8.0.0",
     "prisma": "^6.18.0",
     "turbo": "^2.1.3",
