@@ -1,26 +1,38 @@
-﻿import js from "@eslint/js";
+﻿// workers/ai/eslint.config.mjs
+import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import globals from "globals";
 
+/** @type {import("eslint").Linter.FlatConfig[]} */
 export default [
-  // 1) Tüm dist ve node_modules klasörlerini dışla (top-level ignore olmalı)
-  { ignores: ["dist/**", "node_modules/**"] },
+  {
+    // Konfig dosyasını ve build klasörlerini lint dışı bırak
+    ignores: [
+      "eslint.config.*",
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".turbo/**",
+    ],
+  },
 
-  // 2) Temel önerilen setler
+  // JS temel kurallar
   js.configs.recommended,
+
+  // TS kuralları (parser + plugin)
   ...tseslint.configs.recommended,
 
-  // 3) TS dosyaları için ayarlar
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ["**/*.{ts,tsx,js,cjs,mjs}"],
     languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.json"],
-        tsconfigRootDir: import.meta.dirname
-      }
+      ecmaVersion: "latest",
+      sourceType: "module",
+      // Node ortamı (URL dahil)
+      globals: { ...globals.node, URL: "readonly" },
     },
     rules: {
-      // Sprint 0'da hızlı geçiş için kapatıyoruz; Sprint 1'de yeniden açarız
-      "@typescript-eslint/no-explicit-any": "off"
-    }
-  }
+      // İstersen burada proje seviyesi kurallar ekleyebilirsin
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ];

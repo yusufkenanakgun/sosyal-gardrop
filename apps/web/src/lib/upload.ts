@@ -41,9 +41,10 @@ export function putToPresignedUrlXHR(opts: {
     const xhr = new XMLHttpRequest();
 
     const abortHandler = () => {
-      try { xhr.abort(); } catch {}
+      xhr.abort(); // XHR.abort() tipik olarak hata fırlatmaz
       reject(new DOMException("Aborted", "AbortError"));
     };
+
     if (signal) {
       if (signal.aborted) return abortHandler();
       signal.addEventListener("abort", abortHandler, { once: true });
