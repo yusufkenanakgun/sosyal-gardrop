@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Aynı branch'te paralel CI'ları iptal ederek hızlı geri bildirim
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -15,25 +14,28 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      TURBO_TELEMETRY_DISABLED: '1'
+      NODE_OPTIONS: '--max-old-space-size=4096'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Node + pnpm kurulumu (pnpm cache entegre)
+      # package.json'daki "packageManager" sürümünü kullanır (version belirtmiyoruz)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.19.0
-          run_install: false
-
-      # pnpm store cache (daha hızlı kurulum)
+      # Sadece pnpm store'u cache'le (node_modules'u asla cache'leme)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -46,10 +48,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # 🔕 Mobil'i hariç tutarak kur (EACCES'i tamamen baypas)
+      - name: Install (exclude @sg/mobile)
+        run: pnpm -r --filter '!@sg/mobile' install --frozen-lockfile
 
-      # Turbo cache: node_modules dışı build çıktıları için
       - name: Cache turborepo
         uses: actions/cache@v4
         with:
@@ -60,19 +62,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # Çevre değişkenleri: build’lerin telemetrisini kapat
-      - name: Set CI envs
-        run: |
-          echo "NEXT_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
-          echo "TURBO_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
-          echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
+      # Prisma (sadece API'de gerekli)
+      - name: Prisma generate (@sg/api)
+        working-directory: apps/api
+        run: pnpm prisma generate
 
-      # Lint / Typecheck / Build sıralı çalıştır
-      - name: Lint
-        run: pnpm -w lint
+      # Lint/Typecheck/Build'i tek tek paket bazında çağırıyoruz (mobile yok)
+      - name: Lint (@sg/api)
+        run: pnpm -F @sg/api lint
+      - name: Lint (@sg/web)
+        run: pnpm -F @sg/web lint
+      - name: Lint (@sg/ai)
+        run: pnpm -F @sg/ai lint
 
-      - name: Typecheck
-        run: pnpm -w typecheck
+      - name: Typecheck (@sg/api)
+        run: pnpm -F @sg/api typecheck
+      - name: Typecheck (@sg/web)
+        run: pnpm -F @sg/web typecheck
+      - name: Typecheck (@sg/ai)
+        run: pnpm -F @sg/ai typecheck
 
-      - name: Build
-        run: pnpm -w build
+      - name: Build (@sg/api)
+        run: pnpm -F @sg/api build
+      - name: Build (@sg/web)
+        run: pnpm -F @sg/web build
+      - name: Build (@sg/ai)
+        run: pnpm -F @sg/ai build

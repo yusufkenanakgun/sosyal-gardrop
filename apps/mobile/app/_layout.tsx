@@ -1,26 +1,23 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import 'react-native-gesture-handler';
+// apps/mobile/app/_layout.tsx
+import { Stack } from "expo-router";
+import { Platform } from "react-native";
 
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+if (Platform.OS === "web") {
+  const origWarn = console.warn.bind(console);
+  console.warn = (...args: any[]) => {
+    const msg = String(args[0] ?? "");
+    // Sadece pointerEvents uyarısını sustur
+    if (msg.includes("props.pointerEvents is deprecated")) return;
+    origWarn(...args);
+  };
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack initialRouteName="(protected)">
+      {/* Root seviyede index beklemiyoruz artık */}
+      <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+      <Stack.Screen name="+not-found" options={{ title: "Not Found" }} />
+    </Stack>
   );
 }

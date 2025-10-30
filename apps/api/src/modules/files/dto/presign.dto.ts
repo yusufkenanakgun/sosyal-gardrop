@@ -6,9 +6,6 @@ export class PresignRequestDto {
 
   @ApiProperty({ example: 'image/jpeg' })
   contentType!: string;
-
-  @ApiProperty({ example: 'users/abc123', required: false })
-  prefix?: string;
 }
 
 export class PresignResponseDto {

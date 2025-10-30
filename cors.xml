@@ -1,0 +1,16 @@
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>http://localhost:3000</AllowedOrigin>
+    <AllowedOrigin>http://192.168.56.1:3000</AllowedOrigin>
+    <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>PUT</AllowedMethod>
+    <AllowedMethod>POST</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+    <ExposeHeader>x-amz-request-id</ExposeHeader>
+    <ExposeHeader>x-amz-id-2</ExposeHeader>
+    <MaxAgeSeconds>86400</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>

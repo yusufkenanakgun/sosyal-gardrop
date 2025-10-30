@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
@@ -7,6 +8,7 @@ import { z } from 'zod';
 import { BootstrapCheckService } from './bootstrap-check.service';
 import * as path from 'path';
 import * as fs from 'fs';
+import { WardrobeModule } from './wardrobe/wardrobe.module';
 import { FilesModule } from './modules/files/files.module'; // ✅ eklendi
 
 const envSchema = z.object({
@@ -30,30 +32,34 @@ const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 // Olası .env konum adayları
 const candidates = [
-  path.join(repoRoot, '.env'),          // repo kökü .env
-  path.join(repoRoot, '.env.local'),    // repo kökü .env.local (varsa)
-  path.join(process.cwd(), '.env'),     // çalışma dizini .env (pnpm behavior)
+  path.join(repoRoot, '.env'), // repo kökü .env
+  path.join(repoRoot, '.env.local'), // repo kökü .env.local (varsa)
+  path.join(process.cwd(), '.env'), // çalışma dizini .env (pnpm behavior)
   path.join(process.cwd(), '.env.local'),
-  path.join(__dirname, '.env'),         // apps/api/dist/.env (varsa)
+  path.join(__dirname, '.env'), // apps/api/dist/.env (varsa)
   path.join(__dirname, '.env.local'),
 ];
 
 // Yalnızca var olan dosyaları geçir
 const existingEnvFiles = candidates.filter((p) => {
-  try { return fs.existsSync(p); } catch { return false; }
+  try {
+    return fs.existsSync(p);
+  } catch {
+    return false;
+  }
 });
 
 // Başlangıçta hangi dosyaları okuduğumuzu logla (teşhis için)
 if (existingEnvFiles.length === 0) {
-  // eslint-disable-next-line no-console
   console.warn('⚠️  No .env files found among candidates:', candidates);
 } else {
-  // eslint-disable-next-line no-console
   console.log('✅ Using env files:', existingEnvFiles);
 }
 
 @Module({
   imports: [
+    AuthModule,
+    WardrobeModule,
     ConfigModule.forRoot({
       isGlobal: true,
       // Hiçbiri yoksa envFilePath vermiyoruz; sadece process.env kullanılır.
@@ -63,7 +69,6 @@ if (existingEnvFiles.length === 0) {
       validate: (env) => {
         const parsed = envSchema.safeParse(env);
         if (!parsed.success) {
-          // eslint-disable-next-line no-console
           console.error('❌ Invalid env:', parsed.error.flatten().fieldErrors);
           throw new Error('Invalid environment variables');
         }
