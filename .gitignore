@@ -9,6 +9,7 @@ expo
 .env
 apps/web/.env.local
 apps/mobile/.env
+apps/mobile/node_modules
 
 # build caches
 .turbo/
