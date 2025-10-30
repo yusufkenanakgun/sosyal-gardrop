@@ -332,9 +332,6 @@ importers:
       eslint-plugin-import:
         specifier: ^2.32.0
         version: 2.32.0(@typescript-eslint/parser@6.21.0(eslint@9.14.0(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@4.4.4)(eslint@9.14.0(jiti@2.6.1))
-      eslint-plugin-react-native:
-        specifier: ^5.0.0
-        version: 5.0.0(eslint@9.14.0(jiti@2.6.1))
       globals:
         specifier: ^16.4.0
         version: 16.4.0
@@ -4999,14 +4996,6 @@ packages:
   eslint-plugin-react-hooks@7.0.1:
     resolution: {integrity: sha512-O0d0m04evaNzEPoSW+59Mezf8Qt0InfgGIBJnpC0h3NH/WjUAR7BIKUfysC6todmtiZ/A0oUVS8Gce0WhBrHsA==}
     engines: {node: '>=18'}
-    peerDependencies:
-      eslint: 9.14.0
-
-  eslint-plugin-react-native-globals@0.1.2:
-    resolution: {integrity: sha512-9aEPf1JEpiTjcFAmmyw8eiIXmcNZOqaZyHO77wgm0/dWfT/oxC1SrIq8ET38pMxHYrcB6Uew+TzUVsBeczF88g==}
-
-  eslint-plugin-react-native@5.0.0:
-    resolution: {integrity: sha512-VyWlyCC/7FC/aONibOwLkzmyKg4j9oI8fzrk9WYNs4I8/m436JuOTAFwLvEn1CVvc7La4cPfbCyspP4OYpP52Q==}
     peerDependencies:
       eslint: 9.14.0
 
@@ -14849,13 +14838,6 @@ snapshots:
       zod-validation-error: 4.0.2(zod@4.1.12)
     transitivePeerDependencies:
       - supports-color
-
-  eslint-plugin-react-native-globals@0.1.2: {}
-
-  eslint-plugin-react-native@5.0.0(eslint@9.14.0(jiti@2.6.1)):
-    dependencies:
-      eslint: 9.14.0(jiti@2.6.1)
-      eslint-plugin-react-native-globals: 0.1.2
 
   eslint-plugin-react@7.37.5(eslint@9.14.0(jiti@2.6.1)):
     dependencies:
