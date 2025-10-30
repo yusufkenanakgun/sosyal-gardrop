@@ -24,10 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ❗ version: ... KALDIRILDI — package.json'daki packageManager esas alınacak
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.19.0
           run_install: false
 
       - name: Setup Node
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: '20'
 
-      # Cache only the pnpm store (never node_modules)
+      # Sadece pnpm store'u cache'le (node_modules asla değil)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -48,7 +48,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # Fix EACCES coming from a bad cached node_modules (do NOT cache node_modules)
+      # EACCES için güvenli temizlik
       - name: Clean mobile node_modules & fix permissions
         run: |
           rm -rf apps/mobile/node_modules
@@ -68,7 +68,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # Prisma (repo özelinde gerekli)
       - name: Prisma generate (@sg/api)
         working-directory: apps/api
         run: pnpm prisma generate
