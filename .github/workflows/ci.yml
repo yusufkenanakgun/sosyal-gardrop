@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Aynı branch'te paralel CI'ları iptal ederek hızlı geri bildirim
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -16,16 +15,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # 🧪 CI içinde Postgres servisi
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports: [ '5432:5432' ]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    # Tüm adımlar için DB URL (Prisma ve app build'in görmesi için)
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # Node + pnpm kurulumu (pnpm cache entegre)
+      # Node + pnpm
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -33,7 +54,13 @@ jobs:
           version: 10.19.0
           run_install: false
 
-      # pnpm store cache (daha hızlı kurulum)
+      - name: Show tool versions
+        run: |
+          node -v
+          pnpm -v
+          which pnpm
+
+      # pnpm store cache
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -49,25 +76,48 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Turbo cache: node_modules dışı build çıktıları için
+      # (Opsiyonel) psql ile DB'ye ping atıp hazır bekle
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -c "select 1" >/dev/null 2>&1; then
+              echo "Postgres is up"; exit 0
+            fi
+            echo "Waiting for Postgres..."; sleep 2
+          done
+          echo "Postgres did not become ready in time"; exit 1
+
+      # Prisma client türleri gerekli ise (genelde gerekiyor)
+      - name: Prisma generate (@sg/api)
+        run: pnpm --filter @sg/api prisma generate
+
+      # Migration'ları uygulamak istiyorsan aç (seed/e2e senaryolarında gerekir)
+      # - name: Prisma migrate deploy (@sg/api)
+      #   run: pnpm --filter @sg/api prisma migrate deploy
+
+      # Turborepo cache
       - name: Cache turborepo
         uses: actions/cache@v4
         with:
           path: |
             .turbo
             **/.turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ github.ref }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
+            ${{ runner.os }}-turbo-${{ github.ref }}
             ${{ runner.os }}-turbo-
 
-      # Çevre değişkenleri: build’lerin telemetrisini kapat
+      # Ortam değişkenleri
       - name: Set CI envs
         run: |
           echo "NEXT_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
           echo "TURBO_TELEMETRY_DISABLED=1" >> $GITHUB_ENV
           echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
+          echo "CI=true" >> $GITHUB_ENV
 
-      # Lint / Typecheck / Build sıralı çalıştır
+      # Lint / Typecheck / Build
       - name: Lint
         run: pnpm -w lint
 
