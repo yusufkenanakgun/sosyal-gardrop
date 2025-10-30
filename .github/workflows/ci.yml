@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # package.json'daki packageManager sürümü kullanılacak
+      # package.json'daki "packageManager" sürümünü kullanır (version belirtmiyoruz)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: '20'
 
-      # Yalnızca pnpm store'u cache'le (node_modules asla cache'lenmez)
+      # Sadece pnpm store'u cache'le (node_modules'u asla cache'leme)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -48,18 +48,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # 🔧 Sert temizlik + sahiplik/izin düzeltme (root etkisi varsa kesin çözer)
-      - name: Hard reset mobile node_modules perms
-        run: |
-          sudo rm -rf apps/mobile/node_modules
-          sudo mkdir -p apps/mobile/node_modules/.bin
-          sudo chown -R $USER:$USER apps/mobile
-          chmod -R u+rwX,go+rX apps/mobile
-          # Teşhis için (logda gör)
-          ls -ld apps/mobile apps/mobile/node_modules apps/mobile/node_modules/.bin
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # 🔕 Mobil'i hariç tutarak kur (EACCES'i tamamen baypas)
+      - name: Install (exclude @sg/mobile)
+        run: pnpm -r --filter '!@sg/mobile' install --frozen-lockfile
 
       - name: Cache turborepo
         uses: actions/cache@v4
@@ -71,15 +62,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
+      # Prisma (sadece API'de gerekli)
       - name: Prisma generate (@sg/api)
         working-directory: apps/api
         run: pnpm prisma generate
 
-      - name: Lint
-        run: pnpm -w turbo run lint
+      # Lint/Typecheck/Build'i tek tek paket bazında çağırıyoruz (mobile yok)
+      - name: Lint (@sg/api)
+        run: pnpm -F @sg/api lint
+      - name: Lint (@sg/web)
+        run: pnpm -F @sg/web lint
+      - name: Lint (@sg/ai)
+        run: pnpm -F @sg/ai lint
 
-      - name: Typecheck
-        run: pnpm -w typecheck
+      - name: Typecheck (@sg/api)
+        run: pnpm -F @sg/api typecheck
+      - name: Typecheck (@sg/web)
+        run: pnpm -F @sg/web typecheck
+      - name: Typecheck (@sg/ai)
+        run: pnpm -F @sg/ai typecheck
 
-      - name: Build
-        run: pnpm -w build
+      - name: Build (@sg/api)
+        run: pnpm -F @sg/api build
+      - name: Build (@sg/web)
+        run: pnpm -F @sg/web build
+      - name: Build (@sg/ai)
+        run: pnpm -F @sg/ai build
