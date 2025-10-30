@@ -11,3 +11,12 @@ expo
 apps/web/.env.local
 apps/mobile/.env
 
+node_modules/
+.turbo/
+pnpm-debug.log*
+.next/
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+.env*
+!.env.example

@@ -30,25 +30,27 @@ const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 // Olası .env konum adayları
 const candidates = [
-  path.join(repoRoot, '.env'),          // repo kökü .env
-  path.join(repoRoot, '.env.local'),    // repo kökü .env.local (varsa)
-  path.join(process.cwd(), '.env'),     // çalışma dizini .env (pnpm behavior)
+  path.join(repoRoot, '.env'), // repo kökü .env
+  path.join(repoRoot, '.env.local'), // repo kökü .env.local (varsa)
+  path.join(process.cwd(), '.env'), // çalışma dizini .env (pnpm behavior)
   path.join(process.cwd(), '.env.local'),
-  path.join(__dirname, '.env'),         // apps/api/dist/.env (varsa)
+  path.join(__dirname, '.env'), // apps/api/dist/.env (varsa)
   path.join(__dirname, '.env.local'),
 ];
 
 // Yalnızca var olan dosyaları geçir
 const existingEnvFiles = candidates.filter((p) => {
-  try { return fs.existsSync(p); } catch { return false; }
+  try {
+    return fs.existsSync(p);
+  } catch {
+    return false;
+  }
 });
 
 // Başlangıçta hangi dosyaları okuduğumuzu logla (teşhis için)
 if (existingEnvFiles.length === 0) {
-  // eslint-disable-next-line no-console
   console.warn('⚠️  No .env files found among candidates:', candidates);
 } else {
-  // eslint-disable-next-line no-console
   console.log('✅ Using env files:', existingEnvFiles);
 }
 
@@ -63,7 +65,6 @@ if (existingEnvFiles.length === 0) {
       validate: (env) => {
         const parsed = envSchema.safeParse(env);
         if (!parsed.success) {
-          // eslint-disable-next-line no-console
           console.error('❌ Invalid env:', parsed.error.flatten().fieldErrors);
           throw new Error('Invalid environment variables');
         }

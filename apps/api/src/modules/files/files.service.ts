@@ -20,7 +20,9 @@ export class FilesService {
 
   async createUploadUrl(dto: PresignRequestDto): Promise<PresignResponseDto> {
     try {
-      const ext = dto.filename.includes('.') ? dto.filename.split('.').pop() : undefined;
+      const ext = dto.filename.includes('.')
+        ? dto.filename.split('.').pop()
+        : undefined;
       const uuid = randomUUID();
       const prefix = dto.prefix ? dto.prefix.replace(/^\/|\/$/g, '') + '/' : '';
       const key = `${prefix}${uuid}${ext ? '.' + ext : ''}`;
@@ -31,7 +33,9 @@ export class FilesService {
         ContentType: dto.contentType,
       });
 
-      const uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 300 });
+      const uploadUrl = await getSignedUrl(getS3Client(), command, {
+        expiresIn: 300,
+      });
 
       let publicUrl: string | undefined = undefined;
       if (this.endpoint && this.bucket) {
@@ -50,7 +54,7 @@ export class FilesService {
         new HeadObjectCommand({
           Bucket: this.bucket,
           Key: key,
-        })
+        }),
       );
 
       const { GetObjectCommand } = await import('@aws-sdk/client-s3');
@@ -58,7 +62,9 @@ export class FilesService {
         Bucket: this.bucket,
         Key: key,
       });
-      const downloadUrl = await getSignedUrl(getS3Client(), cmd, { expiresIn: 300 });
+      const downloadUrl = await getSignedUrl(getS3Client(), cmd, {
+        expiresIn: 300,
+      });
       return { downloadUrl };
     } catch {
       throw new InternalServerErrorException('Failed to generate download URL');
