@@ -1,0 +1,14 @@
+
+> @sg/mobile@1.0.0 dev C:\Users\Yusuf\Desktop\sosyal-gardrop\apps\mobile
+> pnpm start
+
+
+> @sg/mobile@1.0.0 start C:\Users\Yusuf\Desktop\sosyal-gardrop\apps\mobile
+> expo start
+
+env: load .env
+env: export EXPO_PUBLIC_API_URL
+Starting project at C:\Users\Yusuf\Desktop\sosyal-gardrop\apps\mobile
+Starting Metro Bundler
+The following packages should be updated for best compatibility with the installed expo version:
+  eslint-config-expo@10.0.0 - expected version: ~8.0.1

@@ -3,9 +3,9 @@ import type { Config } from "tailwindcss";
 
 export default {
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}", // varsa
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}", // kökte components kullanıyorsun diye ekledik
   ],
   theme: {
     extend: {
@@ -14,7 +14,6 @@ export default {
         "2xl": "1rem",
         "3xl": "1.5rem",
       },
-      // istersen burada renk/palet genişletebilirsin
     },
   },
   plugins: [],
