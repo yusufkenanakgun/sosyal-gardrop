@@ -5,19 +5,19 @@ import {
   useQueryClient,
   type QueryFunctionContext,
 } from '@tanstack/react-query';
-import { createItem, listItems, presign } from './api';
-import type { ListItemsResponse } from './types';
+import { listItems, presignUpload, completeUpload } from '@/lib/api';
+import type { ListItemsResponse } from '@/lib/api';
 
-type WardrobeKey = readonly [ 'wardrobe', 'list', { type?: string } ];
+type WardrobeKey = readonly ['wardrobe', 'list', { type?: string }];
 type PageParam = string | null;
 
 export function useWardrobeInfinite(filters: { type?: string }) {
   return useInfiniteQuery<
-    ListItemsResponse,        // TQueryFnData
-    Error,                    // TError
-    ListItemsResponse,        // TData (seçim yapmadık, aynı kalsın)
-    WardrobeKey,              // TQueryKey
-    PageParam                 // TPageParam
+    ListItemsResponse,  // TQueryFnData
+    Error,              // TError
+    ListItemsResponse,  // TData
+    WardrobeKey,        // TQueryKey
+    PageParam           // TPageParam
   >({
     queryKey: ['wardrobe', 'list', filters] as const,
     initialPageParam: null,
@@ -28,13 +28,17 @@ export function useWardrobeInfinite(filters: { type?: string }) {
 }
 
 export function usePresign() {
-  return useMutation({ mutationFn: presign });
+  return useMutation({ mutationFn: presignUpload });
 }
 
-export function useCreateItem() {
+/**
+ * Upload sonrasında dosyayı kayıt altına almak için (api.files.complete)
+ * createItem yerine completeUpload kullanıyoruz.
+ */
+export function useCompleteUpload() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: createItem,
+    mutationFn: (key: string) => completeUpload(key),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['wardrobe', 'list'] });
     },

@@ -1,9 +1,12 @@
-import { API_URL } from "./api";
+'use client';
+
+import { api } from './api';
 
 export type PresignResponse = {
   uploadUrl: string;
   key: string;
   publicUrl?: string | null;
+  contentType?: string | null;
 };
 
 type PresignBody = {
@@ -12,23 +15,46 @@ type PresignBody = {
   prefix?: string;
 };
 
-/** Presigned PUT URL al */
-export async function getPresignedPutUrl(file: File, prefix?: string): Promise<PresignResponse> {
-  const body: PresignBody = {
-    filename: file.name,
-    contentType: file.type || "application/octet-stream",
-    ...(prefix ? { prefix } : {}),
-  };
-  const res = await fetch(`${API_URL}/files/presign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" }, // şu anda auth yok
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`presign failed: ${res.status}`);
-  return res.json();
+function guessContentType(name: string, fallback = 'image/jpeg') {
+  const n = name.toLowerCase();
+  if (n.endsWith('.png')) return 'image/png';
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+  if (n.endsWith('.webp')) return 'image/webp';
+  if (n.endsWith('.gif')) return 'image/gif';
+  if (n.endsWith('.svg')) return 'image/svg+xml';
+  return fallback;
 }
 
-/** Progress için XHR PUT */
+/** ---- Presign (AUTH → api.files.presign) ---- */
+export async function getPresignedPutUrl(file: File, prefix?: string): Promise<PresignResponse> {
+  const ct = file.type || guessContentType(file.name);
+  const body: PresignBody = {
+    filename: file.name,
+    contentType: ct,
+    ...(prefix ? { prefix } : {}),
+  };
+  return api.files.presign({ filename: body.filename, contentType: body.contentType });
+}
+
+/** ---- PUT (fetch) — progress gerekmezse ---- */
+export async function putFileToPresignedUrl(
+  uploadUrl: string,
+  file: File,
+  contentType?: string
+): Promise<void> {
+  const ct = contentType || file.type || guessContentType(file.name);
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': ct },
+    body: file,
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Upload failed: ${res.status} ${msg || res.statusText}`);
+  }
+}
+
+/** ---- PUT (XHR) — progress bar için ---- */
 export function putToPresignedUrlXHR(opts: {
   file: File;
   uploadUrl: string;
@@ -36,18 +62,19 @@ export function putToPresignedUrlXHR(opts: {
   signal?: AbortSignal;
 }): Promise<void> {
   const { file, uploadUrl, onProgress, signal } = opts;
+  const ct = file.type || guessContentType(file.name);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
     const abortHandler = () => {
-      xhr.abort(); // XHR.abort() tipik olarak hata fırlatmaz
-      reject(new DOMException("Aborted", "AbortError"));
+      xhr.abort();
+      reject(new DOMException('Aborted', 'AbortError'));
     };
 
     if (signal) {
       if (signal.aborted) return abortHandler();
-      signal.addEventListener("abort", abortHandler, { once: true });
+      signal.addEventListener('abort', abortHandler, { once: true });
     }
 
     xhr.upload.onprogress = (evt) => {
@@ -60,19 +87,36 @@ export function putToPresignedUrlXHR(opts: {
       if (xhr.status >= 200 && xhr.status < 300) resolve();
       else reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
     };
-    xhr.onerror = () => reject(new Error("Network error during upload"));
-    xhr.open("PUT", uploadUrl);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', ct);
     xhr.send(file);
   });
 }
 
-/** İmzalı GET indirme linki */
+/** ---- Private bucket GET presign (AUTH) ---- */
 export async function getSignedDownloadUrl(key: string): Promise<string> {
-  const url = new URL(`${API_URL}/files/download-url`);
-  url.searchParams.set("key", key);
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`download-url failed: ${res.status}`);
-  const data = await res.json();
-  return data.downloadUrl || data.url || data.signedUrl;
+  return api.files.downloadUrl(key); // { downloadUrl } -> string
+}
+
+/** ---- Tek fonksiyonda: presign → PUT → complete ---- */
+export async function uploadViaPresign(
+  file: File,
+  onProgress?: (pct: number) => void
+) {
+  const ct = file.type || guessContentType(file.name);
+
+  const { uploadUrl, key } = await api.files.presign({
+    filename: file.name,
+    contentType: ct,
+  });
+
+  if (onProgress) {
+    await putToPresignedUrlXHR({ file, uploadUrl, onProgress });
+  } else {
+    await putFileToPresignedUrl(uploadUrl, file, ct);
+  }
+
+  // API WardrobeItem döndürür (imageUrl null olabilir; s3Key kullanın)
+  return api.files.complete({ key });
 }

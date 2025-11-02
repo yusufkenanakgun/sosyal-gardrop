@@ -25,8 +25,10 @@ export default function WardrobeGrid({ type }: { type?: string }) {
   if (isLoading) return <p>Yükleniyor…</p>;
   if (isError) return <p className="text-red-600">Hata: {(error as Error).message}</p>;
 
-  // data'yı InfiniteData<ListItemsResponse> olarak daralt
-  const pages = (data as InfiniteData<ListItemsResponse> | undefined)?.pages ?? [];
+  // data'yı güvenli biçimde daralt
+  const pages: ListItemsResponse[] =
+    ((data as InfiniteData<ListItemsResponse> | undefined)?.pages ?? []) as ListItemsResponse[];
+
   const items: WardrobeItem[] = pages.flatMap((p) => p.items);
 
   if (items.length === 0) return <p>Henüz öğe yok. Üstten yükleyebilirsin.</p>;

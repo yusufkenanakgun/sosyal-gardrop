@@ -19,6 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { FilesService } from './files.service';
 import { PresignRequestDto, PresignResponseDto } from './dto/presign.dto';
+import { CompleteUploadDto } from './dto/complete-upload.dto';
+import { ListItemsQueryDto } from './dto/list-items.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import type { RequestWithUser } from '../../types/request-with-user';
 
@@ -38,8 +40,42 @@ export class FilesController {
     @Req() req: RequestWithUser,
   ): Promise<PresignResponseDto> {
     const userId = String(req.user?.id ?? req.user?.sub ?? '');
+    const email = String(req.user?.email ?? '');
     if (!userId) throw new UnauthorizedException('Kullanıcı doğrulanamadı');
-    return this.files.createUploadUrl(dto, userId);
+    return this.files.createUploadUrl(dto, userId, email);
+  }
+
+  @Post('complete')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary:
+      'Upload tamamla: MinIO objesini doğrula ve DB’ye WardrobeItem kaydı oluştur (random metadata)',
+  })
+  @ApiCreatedResponse({
+    description: 'WardrobeItem oluşturuldu',
+    schema: { type: 'object' },
+  })
+  async complete(
+    @Body() dto: CompleteUploadDto,
+    @Req() req: RequestWithUser,
+  ) {
+    const userId = String(req.user?.id ?? req.user?.sub ?? '');
+    const email = String(req.user?.email ?? '');
+    if (!userId) throw new UnauthorizedException('Kullanıcı doğrulanamadı');
+    return this.files.completeAndCreateItem(userId, email, dto);
+  }
+
+  @Get('items')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Kullanıcının WardrobeItem listesini getir (sayfalı)' })
+  @ApiOkResponse({ description: 'items + nextCursor' })
+  async list(
+    @Query() q: ListItemsQueryDto,
+    @Req() req: RequestWithUser,
+  ) {
+    const userId = String(req.user?.id ?? req.user?.sub ?? '');
+    if (!userId) throw new UnauthorizedException('Kullanıcı doğrulanamadı');
+    return this.files.listWardrobeItems(userId, q);
   }
 
   @Get('download-url')
