@@ -7,3 +7,5 @@ packages:
 onlyBuiltDependencies:
   - '@nestjs/core'
   - bcrypt
+
+packageImportMethod: copy
