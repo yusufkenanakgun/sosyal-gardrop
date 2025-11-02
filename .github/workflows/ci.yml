@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -35,36 +35,23 @@ jobs:
         with:
           node-version: '20'
 
-      # (Geçici) pnpm store cache KAPALI — önce sorunu çözelim
-      # İstersek bu iki adımı sonra yeniden ekleriz.
+      # (İsteğe bağlı) pnpm store cache
+      - name: Get pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      # --- Tanılama + Agresif temizlik & izin düzeltme ---
-      - name: Diagnose node_modules ownership
-        run: |
-          set -x
-          ls -la apps/mobile || true
-          ls -ld apps/mobile/node_modules || true
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-      - name: Force remove ALL node_modules recursively
-        run: |
-          set -e
-          # Tüm node_modules'ları, .pnpm ve .turbo'yu kökten temizle
-          sudo find . -type d -name node_modules -prune -exec rm -rf {} +
-          sudo rm -rf .pnpm .turbo
-          # Güvenli tarafta kal: mobile tarafını özel olarak da temizle
-          sudo rm -rf apps/mobile/node_modules
+      # Sadece core paketleri kur (mobile HARİÇ)
+      - name: Install (exclude mobile)
+        run: pnpm -r --filter '!@sg/mobile' install --frozen-lockfile
 
-      - name: Recreate mobile node_modules with correct ownership
-        run: |
-          sudo install -d -m 0777 apps/mobile/node_modules
-          sudo chown -R $USER:$USER apps/mobile
-          sudo chmod -R u+rwx apps/mobile
-
-      # --- Kurulum ---
-      - name: Install (all)
-        run: pnpm install --no-frozen-lockfile
-
-      # --- Turbo cache (açık) ---
       - name: Cache turborepo
         uses: actions/cache@v4
         with:
@@ -87,8 +74,6 @@ jobs:
         run: pnpm -F @sg/web lint
       - name: Lint (@sg/ai)
         run: pnpm -F @sg/ai lint
-      - name: Lint (@sg/mobile)
-        run: pnpm -F @sg/mobile lint
 
       # ----- Typecheck -----
       - name: Typecheck (@sg/api)
@@ -97,8 +82,6 @@ jobs:
         run: pnpm -F @sg/web typecheck
       - name: Typecheck (@sg/ai)
         run: pnpm -F @sg/ai typecheck
-      - name: Typecheck (@sg/mobile)
-        run: pnpm -F @sg/mobile typecheck
 
       # ----- Build -----
       - name: Build (@sg/api)
@@ -107,3 +90,51 @@ jobs:
         run: pnpm -F @sg/web build
       - name: Build (@sg/ai)
         run: pnpm -F @sg/ai build
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      NODE_OPTIONS: '--max-old-space-size=4096'
+      # 🔒 En kritik ayar: bin link’leri kapat (pnpm .bin oluşturmaz)
+      NPM_CONFIG_BIN_LINKS: 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Güvenli temizlik (olası kalıntılar)
+      - name: Clean leftovers
+        run: |
+          sudo rm -rf apps/mobile/node_modules || true
+          sudo rm -rf apps/mobile/.pnpm || true
+          sudo chown -R $USER:$USER apps/mobile
+          sudo chmod -R u+rwX apps/mobile
+
+      # 👉 Mobil bağımlılıkları SADECE mobil dizininde kur:
+      # - --ignore-scripts: postinstall/native script’leri atla
+      # - bin-links=false: .bin symlink’leri oluşturulmaz -> EACCES biter
+      - name: Install (mobile, no bin-links)
+        working-directory: apps/mobile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Lint & Typecheck’i pnpm exec ile çalıştır (bin link’e ihtiyaç yok)
+      - name: Typecheck (@sg/mobile)
+        working-directory: apps/mobile
+        run: pnpm exec tsc -p tsconfig.json --noEmit
+
+      - name: Lint (@sg/mobile)
+        working-directory: apps/mobile
+        run: pnpm exec eslint . --ext .ts,.tsx
