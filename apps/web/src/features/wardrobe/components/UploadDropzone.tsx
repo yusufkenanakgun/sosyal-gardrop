@@ -1,45 +1,34 @@
+// src/features/wardrobe/components/UploadDropzone.tsx
 'use client';
 import React from 'react';
-import { usePresign, useCreateItem } from '../hooks';
+import { presignUpload, completeUpload } from '@/lib/api'; // (veya api.files.*)
+import { putFileToPresignedUrl } from '@/lib/upload';
+import { getErrorMessage } from '@/lib/error';
 
-type Props = {
-  accept?: string; // varsayılan: image/*, application/pdf, video/*
-};
-
-export default function UploadDropzone({
-  accept = 'image/*,application/pdf,video/*',
-}: Props) {
+export default function UploadDropzone({ accept = 'image/*,application/pdf,video/*' }: { accept?: string }) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [dragOver, setDragOver] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [uploading, setUploading] = React.useState(false);
 
-  const presignMut = usePresign();
-  const createMut = useCreateItem();
-
   const onPick = () => inputRef.current?.click();
 
   const handleFiles = async (files: FileList | File[] | null) => {
     setError(null);
     if (!files || (files instanceof FileList && files.length === 0)) return;
-
     const file = Array.from(files)[0];
+
     try {
       if (!file.type) throw new Error('Dosya türü algılanamadı');
 
       // accept kontrolü
       const accepted = accept.split(',').some((t) => {
         const trimmed = t.trim();
-        if (trimmed.endsWith('/*')) {
-          return file.type.startsWith(trimmed.replace('/*', ''));
-        }
+        if (trimmed.endsWith('/*')) return file.type.startsWith(trimmed.replace('/*', ''));
         return file.type === trimmed;
       });
-
-      if (!accepted) {
-        throw new Error(`İzin verilmeyen içerik türü: ${file.type}`);
-      }
+      if (!accepted) throw new Error(`İzin verilmeyen içerik türü: ${file.type}`);
 
       if (file.size > 50 * 1024 * 1024) {
         const ok = confirm('Dosya 50MB üzeri. Yine de yüklemek istiyor musunuz?');
@@ -50,42 +39,17 @@ export default function UploadDropzone({
       setProgress(1);
 
       // 1) presign
-      const pre = await presignMut.mutateAsync({
-        filename: file.name,
-        contentType: file.type,
-      });
+      const pre = await presignUpload({ filename: file.name, contentType: file.type });
 
-      // 2) PUT upload (progress için XHR)
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', pre.uploadUrl);
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.max(1, Math.round((e.loaded / e.total) * 100));
-            setProgress(pct);
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Upload failed: ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(file);
-      });
+      // 2) PUT upload (progress)
+      await putFileToPresignedUrl(pre.uploadUrl, file, file.type);
+      setProgress(90);
 
-      // 3) DB kaydı
-      await createMut.mutateAsync({
-        objectKey: pre.key,
-        contentType: file.type,
-        publicUrl: pre.publicUrl,
-      });
-
+      // 3) complete → DB kaydı
+      await completeUpload(pre.key);
       setProgress(100);
     } catch (e: unknown) {
-      console.error(e);
-      const message = e instanceof Error ? e.message : 'Yükleme hatası';
-      setError(message);
+      setError(getErrorMessage(e) || 'Yükleme hatası');
     } finally {
       setUploading(false);
       setTimeout(() => setProgress(0), 800);
@@ -102,10 +66,7 @@ export default function UploadDropzone({
     <div className="w-full">
       <div
         onClick={onPick}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition ${
@@ -137,7 +98,13 @@ export default function UploadDropzone({
         </button>
       </div>
 
-      <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
     </div>
   );
 }

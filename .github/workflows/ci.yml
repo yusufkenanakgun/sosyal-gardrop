@@ -5,26 +5,31 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  # İstersen ileride mobil değişikliklerinde CI tetiklenmesin diye paths-ignore ekleyebilirsin:
+  # push:
+  #   paths-ignore: [ "apps/mobile/**" ]
+  # pull_request:
+  #   paths-ignore: [ "apps/mobile/**" ]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ci:
+  core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       CI: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
       TURBO_TELEMETRY_DISABLED: '1'
+      EXPO_NO_TELEMETRY: '1'
       NODE_OPTIONS: '--max-old-space-size=4096'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # package.json'daki "packageManager" sürümünü kullanır (version belirtmiyoruz)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -35,7 +40,7 @@ jobs:
         with:
           node-version: '20'
 
-      # Sadece pnpm store'u cache'le (node_modules'u asla cache'leme)
+      # pnpm store cache (node_modules cache'lenmez)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -48,7 +53,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # 🔕 Mobil'i hariç tutarak kur (EACCES'i tamamen baypas)
+      # 🔕 Mobil hariç kurulum
       - name: Install (exclude @sg/mobile)
         run: pnpm -r --filter '!@sg/mobile' install --frozen-lockfile
 
@@ -62,12 +67,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # Prisma (sadece API'de gerekli)
+      # Prisma (sadece API)
       - name: Prisma generate (@sg/api)
         working-directory: apps/api
         run: pnpm prisma generate
 
-      # Lint/Typecheck/Build'i tek tek paket bazında çağırıyoruz (mobile yok)
+      # ----- Lint -----
       - name: Lint (@sg/api)
         run: pnpm -F @sg/api lint
       - name: Lint (@sg/web)
@@ -75,6 +80,7 @@ jobs:
       - name: Lint (@sg/ai)
         run: pnpm -F @sg/ai lint
 
+      # ----- Typecheck -----
       - name: Typecheck (@sg/api)
         run: pnpm -F @sg/api typecheck
       - name: Typecheck (@sg/web)
@@ -82,6 +88,7 @@ jobs:
       - name: Typecheck (@sg/ai)
         run: pnpm -F @sg/ai typecheck
 
+      # ----- Build -----
       - name: Build (@sg/api)
         run: pnpm -F @sg/api build
       - name: Build (@sg/web)

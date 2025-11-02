@@ -1,15 +1,24 @@
 'use client';
 import React from 'react';
-import type { WardrobeItem } from '../types';
+import type { WardrobeItem } from '@/lib/api';
+
+function fileNameFromKey(key?: string | null) {
+  if (!key) return null;
+  const parts = key.split('/');
+  return parts[parts.length - 1] || null;
+}
+
+function badgeFromKey(key?: string | null) {
+  if (!key) return 'FILE';
+  const name = fileNameFromKey(key)?.toLowerCase() ?? '';
+  if (name.endsWith('.pdf')) return 'PDF';
+  if (name.endsWith('.mp4') || name.endsWith('.mov') || name.endsWith('.webm')) return 'VIDEO';
+  return 'FILE';
+}
 
 export default function WardrobeCard({ item }: { item: WardrobeItem }) {
-  const badge = !item.imageUrl
-    ? item.contentType.startsWith('application/pdf')
-      ? 'PDF'
-      : item.contentType.startsWith('video/')
-      ? 'VIDEO'
-      : 'FILE'
-    : null;
+  const filename = fileNameFromKey(item.s3Key);
+  const badge = !item.imageUrl ? badgeFromKey(item.s3Key) : null;
 
   return (
     <div className="rounded-2xl overflow-hidden border bg-white">
@@ -18,7 +27,7 @@ export default function WardrobeCard({ item }: { item: WardrobeItem }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.imageUrl}
-            alt={item.objectKey}
+            alt={filename ?? item.type}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -29,7 +38,7 @@ export default function WardrobeCard({ item }: { item: WardrobeItem }) {
       </div>
       <div className="p-3">
         <p className="text-sm font-medium truncate">
-          {item.objectKey.split('/').slice(-1)[0]}
+          {filename ?? item.type}
         </p>
         <p className="text-xs text-gray-500 mt-1">
           {new Date(item.createdAt).toLocaleString()}
