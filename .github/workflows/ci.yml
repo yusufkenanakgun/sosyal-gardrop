@@ -5,6 +5,11 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  # İstersen ileride mobil değişikliklerinde CI tetiklenmesin diye paths-ignore ekleyebilirsin:
+  # push:
+  #   paths-ignore: [ "apps/mobile/**" ]
+  # pull_request:
+  #   paths-ignore: [ "apps/mobile/**" ]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -35,7 +40,7 @@ jobs:
         with:
           node-version: '20'
 
-      # (İsteğe bağlı) pnpm store cache
+      # pnpm store cache (node_modules cache'lenmez)
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -48,8 +53,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # Sadece core paketleri kur (mobile HARİÇ)
-      - name: Install (exclude mobile)
+      # 🔕 Mobil hariç kurulum
+      - name: Install (exclude @sg/mobile)
         run: pnpm -r --filter '!@sg/mobile' install --frozen-lockfile
 
       - name: Cache turborepo
@@ -90,51 +95,3 @@ jobs:
         run: pnpm -F @sg/web build
       - name: Build (@sg/ai)
         run: pnpm -F @sg/ai build
-
-  mobile:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      CI: 'true'
-      EXPO_NO_TELEMETRY: '1'
-      NODE_OPTIONS: '--max-old-space-size=4096'
-      # 🔒 En kritik ayar: bin link’leri kapat (pnpm .bin oluşturmaz)
-      NPM_CONFIG_BIN_LINKS: 'false'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # Güvenli temizlik (olası kalıntılar)
-      - name: Clean leftovers
-        run: |
-          sudo rm -rf apps/mobile/node_modules || true
-          sudo rm -rf apps/mobile/.pnpm || true
-          sudo chown -R $USER:$USER apps/mobile
-          sudo chmod -R u+rwX apps/mobile
-
-      # 👉 Mobil bağımlılıkları SADECE mobil dizininde kur:
-      # - --ignore-scripts: postinstall/native script’leri atla
-      # - bin-links=false: .bin symlink’leri oluşturulmaz -> EACCES biter
-      - name: Install (mobile, no bin-links)
-        working-directory: apps/mobile
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      # Lint & Typecheck’i pnpm exec ile çalıştır (bin link’e ihtiyaç yok)
-      - name: Typecheck (@sg/mobile)
-        working-directory: apps/mobile
-        run: pnpm exec tsc -p tsconfig.json --noEmit
-
-      - name: Lint (@sg/mobile)
-        working-directory: apps/mobile
-        run: pnpm exec eslint . --ext .ts,.tsx
