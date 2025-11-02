@@ -25,7 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # package.json'daki "packageManager" sürümünü kullanır
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -36,7 +35,7 @@ jobs:
         with:
           node-version: '20'
 
-      # Sadece pnpm store'u cache'le (node_modules'u asla cache'leme)
+      # pnpm store cache
       - name: Get pnpm store path
         id: pnpm-store
         run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
@@ -49,17 +48,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # 🧹 Erişim izinlerini düzelt ve eski node_modules klasörlerini sil
-      - name: Fix permissions & clean old modules
+      # 🧹 Temizlik & izin düzeltme (EACCES fix)
+      - name: Force clean and fix permissions
         run: |
+          echo "🧹 Cleaning workspace to fix EACCES..."
+          sudo rm -rf node_modules **/node_modules .pnpm .turbo
           sudo chown -R $USER:$USER .
-          find . -name node_modules -type d -prune -exec rm -rf {} +
-          find . -name .pnpm -type d -prune -exec rm -rf {} +
+          sudo chmod -R u+rwx .
 
-      # 🔓 Artık mobile da dahil: tüm workspace'leri kur
+      # 🔓 Kurulum (mobil dahil)
       - name: Install (all)
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
+      # Turbo cache
       - name: Cache turborepo
         uses: actions/cache@v4
         with:
@@ -70,7 +71,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # Prisma (sadece API'de gerekli)
+      # Prisma
       - name: Prisma generate (@sg/api)
         working-directory: apps/api
         run: pnpm prisma generate
@@ -95,7 +96,7 @@ jobs:
       - name: Typecheck (@sg/mobile)
         run: pnpm -F @sg/mobile typecheck
 
-      # ----- Build (mobil yok; expo projelerinde genelde build script yoktur) -----
+      # ----- Build -----
       - name: Build (@sg/api)
         run: pnpm -F @sg/api build
       - name: Build (@sg/web)
