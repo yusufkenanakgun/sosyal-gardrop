@@ -35,32 +35,36 @@ jobs:
         with:
           node-version: '20'
 
-      # pnpm store cache
-      - name: Get pnpm store path
-        id: pnpm-store
-        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      # (Geçici) pnpm store cache KAPALI — önce sorunu çözelim
+      # İstersek bu iki adımı sonra yeniden ekleriz.
 
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      # 🧹 Temizlik & izin düzeltme (EACCES fix)
-      - name: Force clean and fix permissions
+      # --- Tanılama + Agresif temizlik & izin düzeltme ---
+      - name: Diagnose node_modules ownership
         run: |
-          echo "🧹 Cleaning workspace to fix EACCES..."
-          sudo rm -rf node_modules **/node_modules .pnpm .turbo
-          sudo chown -R $USER:$USER .
-          sudo chmod -R u+rwx .
+          set -x
+          ls -la apps/mobile || true
+          ls -ld apps/mobile/node_modules || true
 
-      # 🔓 Kurulum (mobil dahil)
+      - name: Force remove ALL node_modules recursively
+        run: |
+          set -e
+          # Tüm node_modules'ları, .pnpm ve .turbo'yu kökten temizle
+          sudo find . -type d -name node_modules -prune -exec rm -rf {} +
+          sudo rm -rf .pnpm .turbo
+          # Güvenli tarafta kal: mobile tarafını özel olarak da temizle
+          sudo rm -rf apps/mobile/node_modules
+
+      - name: Recreate mobile node_modules with correct ownership
+        run: |
+          sudo install -d -m 0777 apps/mobile/node_modules
+          sudo chown -R $USER:$USER apps/mobile
+          sudo chmod -R u+rwx apps/mobile
+
+      # --- Kurulum ---
       - name: Install (all)
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      # Turbo cache
+      # --- Turbo cache (açık) ---
       - name: Cache turborepo
         uses: actions/cache@v4
         with:
@@ -71,7 +75,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      # Prisma
+      # Prisma (sadece API)
       - name: Prisma generate (@sg/api)
         working-directory: apps/api
         run: pnpm prisma generate
