@@ -62,7 +62,7 @@ jobs:
 
       # --- Kurulum ---
       - name: Install (all)
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       # --- Turbo cache (açık) ---
       - name: Cache turborepo
