@@ -49,6 +49,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      # 🧹 Erişim izinlerini düzelt ve eski node_modules klasörlerini sil
+      - name: Fix permissions & clean old modules
+        run: |
+          sudo chown -R $USER:$USER .
+          find . -name node_modules -type d -prune -exec rm -rf {} +
+          find . -name .pnpm -type d -prune -exec rm -rf {} +
+
       # 🔓 Artık mobile da dahil: tüm workspace'leri kur
       - name: Install (all)
         run: pnpm install --frozen-lockfile
