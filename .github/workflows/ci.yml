@@ -18,13 +18,14 @@ jobs:
       CI: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
       TURBO_TELEMETRY_DISABLED: '1'
+      EXPO_NO_TELEMETRY: '1'
       NODE_OPTIONS: '--max-old-space-size=4096'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # package.json'daki "packageManager" sürümünü kullanır (version belirtmiyoruz)
+      # package.json'daki "packageManager" sürümünü kullanır
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -48,9 +49,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # 🔕 Mobil'i hariç tutarak kur (EACCES'i tamamen baypas)
-      - name: Install (exclude @sg/mobile)
-        run: pnpm -r --filter '!@sg/mobile' install --frozen-lockfile
+      # 🔓 Artık mobile da dahil: tüm workspace'leri kur
+      - name: Install (all)
+        run: pnpm install --frozen-lockfile
 
       - name: Cache turborepo
         uses: actions/cache@v4
@@ -67,21 +68,27 @@ jobs:
         working-directory: apps/api
         run: pnpm prisma generate
 
-      # Lint/Typecheck/Build'i tek tek paket bazında çağırıyoruz (mobile yok)
+      # ----- Lint -----
       - name: Lint (@sg/api)
         run: pnpm -F @sg/api lint
       - name: Lint (@sg/web)
         run: pnpm -F @sg/web lint
       - name: Lint (@sg/ai)
         run: pnpm -F @sg/ai lint
+      - name: Lint (@sg/mobile)
+        run: pnpm -F @sg/mobile lint
 
+      # ----- Typecheck -----
       - name: Typecheck (@sg/api)
         run: pnpm -F @sg/api typecheck
       - name: Typecheck (@sg/web)
         run: pnpm -F @sg/web typecheck
       - name: Typecheck (@sg/ai)
         run: pnpm -F @sg/ai typecheck
+      - name: Typecheck (@sg/mobile)
+        run: pnpm -F @sg/mobile typecheck
 
+      # ----- Build (mobil yok; expo projelerinde genelde build script yoktur) -----
       - name: Build (@sg/api)
         run: pnpm -F @sg/api build
       - name: Build (@sg/web)
