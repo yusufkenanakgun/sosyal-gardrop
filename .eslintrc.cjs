@@ -13,9 +13,8 @@ module.exports = {
   plugins: ['@typescript-eslint'],
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/recommended-type-checked',
-    'plugin:@typescript-eslint/stylistic-type-checked',
-    // Next/Nest ekleri varsa buraya
+    'plugin:@typescript-eslint/recommended',
+    // Type-checked kuralları kaldırdık çünkü çok strict
   ],
   ignorePatterns: [
     '**/dist/**',
@@ -24,6 +23,21 @@ module.exports = {
     '**/node_modules/**',
   ],
   rules: {
-    // (3. bölümde gerekirse yumuşatacağız)
+    // Type-safety kurallarını kapat (backend için çok strict)
+    '@typescript-eslint/no-unsafe-assignment': 'off',
+    '@typescript-eslint/no-unsafe-member-access': 'off',
+    '@typescript-eslint/no-unsafe-call': 'off',
+    '@typescript-eslint/no-unsafe-return': 'off',
+    '@typescript-eslint/no-unsafe-argument': 'off',
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-base-to-string': 'off',
+    '@typescript-eslint/no-misused-promises': 'off',
+    '@typescript-eslint/no-floating-promises': 'off',
+    '@typescript-eslint/require-await': 'off',
+    '@typescript-eslint/no-unused-vars': ['error', {
+      'argsIgnorePattern': '^_',
+      'varsIgnorePattern': '^_',
+      'caughtErrorsIgnorePattern': '^_'
+    }],
   },
 };

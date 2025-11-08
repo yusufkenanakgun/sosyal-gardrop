@@ -18,10 +18,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   // Passport 'validate' can receive unknown payload -> narrow safely
-  validate(payload: unknown): { id: string; email?: string } {
+  validate(payload: unknown): { sub: string; email?: string; id: string; userId: string } {
     if (!isJwtPayload(payload) || (payload.typ && payload.typ !== 'access')) {
       throw new UnauthorizedException('Invalid access token payload');
     }
-    return { id: payload.sub, email: payload.email };
+    // Return both 'sub', 'id', and 'userId' for backwards compatibility
+    return { sub: payload.sub, id: payload.sub, userId: payload.sub, email: payload.email };
   }
 }

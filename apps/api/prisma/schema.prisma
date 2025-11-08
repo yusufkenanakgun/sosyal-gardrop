@@ -7,36 +7,301 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// USER & AUTH
+// ============================================
 model User {
-  id               String         @id @default(cuid())
-  email            String         @unique
-  passwordHash     String
-  name             String?
-  avatarUrl        String?
-  bio              String?
-  bodyProfileJSON  Json?
-  createdAt        DateTime       @default(now())
-  WardrobeItems    WardrobeItem[]
-  refreshTokenHash String?
+  id                    String         @id @default(cuid())
+  email                 String         @unique
+  passwordHash          String
+  name                  String?
+  avatarUrl             String?
+  bio                   String?
+  bodyProfileJSON       Json?          // { height, weight, preferredSizes, stylePreferences }
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  refreshTokenHash      String?
+
+  // Relations
+  wardrobeItems         WardrobeItem[]
+  outfits               Outfit[]
+  posts                 Post[]
+  likes                 Like[]
+  comments              Comment[]
+  savedPosts            SavedPost[]
+  followers             Follow[]       @relation("Following")
+  following             Follow[]       @relation("Follower")
+  sentMessages          Message[]
+  messageThreads        MessageThreadParticipant[]
+  files                 File[]
+  recommendations       RecommendationLog[]
+  moderations           Moderation[]
+  notifications         Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationActor")
+
+  @@index([email])
+  @@index([createdAt])
 }
 
+// ============================================
+// WARDROBE
+// ============================================
 model WardrobeItem {
   id           String                 @id @default(cuid())
   userId       String
-  type         String
+  type         String                 // tshirt, jacket, pants, shoes, etc.
   brand        String?
   color        String?
   material     String?
-  season       String[]
-  styleTags    String[]
+  season       String[]               // ["spring", "summer"]
+  styleTags    String[]               // ["casual", "sport"]
   size         String?
   imageUrl     String
   bgRemovedUrl String?
-  labelsJSON   Json?
-  embedding    Unsupported("vector")?
+  labelsJSON   Json?                  // AI tagging results
+  embedding    Unsupported("vector")?  // CLIP embedding for similarity
   createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
-  User User @relation(fields: [userId], references: [id])
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfitItems  OutfitItem[]
 
   @@index([userId, type])
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+// ============================================
+// OUTFITS & RECOMMENDATIONS
+// ============================================
+model Outfit {
+  id              String       @id @default(cuid())
+  userId          String
+  score           Float?       // AI recommendation score
+  weatherTag      String?      // sunny, rainy, cold, hot
+  occasionTag     String?      // work, casual, sport, night
+  previewImageUrl String?      // 2D overlay preview
+  createdAt       DateTime     @default(now())
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items           OutfitItem[]
+  posts           Post[]
+
+  @@index([userId, createdAt])
+  @@index([occasionTag])
+}
+
+model OutfitItem {
+  id        String       @id @default(cuid())
+  outfitId  String
+  itemId    String
+  slot      String       // top, bottom, outerwear, shoes, accessory
+  createdAt DateTime     @default(now())
+
+  outfit    Outfit       @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  item      WardrobeItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([outfitId, itemId])
+  @@index([outfitId])
+  @@index([itemId])
+}
+
+model RecommendationLog {
+  id          String   @id @default(cuid())
+  userId      String
+  inputsJSON  Json     // { weather, occasion, style, temperature }
+  outputsJSON Json     // { items[], score, reasoning }
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ============================================
+// SOCIAL (Posts, Likes, Comments, Follows)
+// ============================================
+model Post {
+  id          String     @id @default(cuid())
+  userId      String
+  outfitId    String?
+  caption     String?
+  mediaUrls   String[]   // Array of image URLs
+  visibility  String     @default("public") // public, followers, private
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfit      Outfit?    @relation(fields: [outfitId], references: [id], onDelete: SetNull)
+  likes       Like[]
+  comments    Comment[]
+  savedPosts  SavedPost[]
+
+  @@index([userId, createdAt])
+  @@index([createdAt(sort: Desc)])
+  @@index([visibility])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId])
+}
+
+model SavedPost {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  recipientId  String   // User receiving the notification
+  actorId      String   // User who triggered the notification
+  type         String   // like, comment, follow, mention
+  targetType   String?  // post, comment
+  targetId     String?  // ID of the post/comment
+  content      String?  // Optional text (e.g., comment preview)
+  isRead       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  recipient    User     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor        User     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, isRead, createdAt(sort: Desc)])
+  @@index([recipientId, createdAt(sort: Desc)])
+  @@index([actorId])
+  @@index([targetType, targetId])
+}
+
+// ============================================
+// MESSAGING
+// ============================================
+model MessageThread {
+  id            String                      @id @default(cuid())
+  lastMessageAt DateTime                    @default(now())
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  participants  MessageThreadParticipant[]
+  messages      Message[]
+
+  @@index([lastMessageAt(sort: Desc)])
+}
+
+model MessageThreadParticipant {
+  id              String        @id @default(cuid())
+  threadId        String
+  userId          String
+  unreadCount     Int           @default(0)
+  lastReadAt      DateTime?
+  createdAt       DateTime      @default(now())
+
+  thread          MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId, lastReadAt])
+  @@index([threadId])
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  threadId  String
+  senderId  String
+  content   String?
+  mediaUrl  String?
+  isRead    Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+// ============================================
+// FILES & STORAGE
+// ============================================
+model File {
+  id          String   @id @default(cuid())
+  userId      String
+  key         String   @unique // S3/R2 object key
+  url         String   // Public or presigned URL
+  contentType String
+  size        Int      // bytes
+  purpose     String?  // profile, wardrobe, post, message
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([key])
+}
+
+// ============================================
+// MODERATION
+// ============================================
+model Moderation {
+  id         String   @id @default(cuid())
+  targetType String   // post, comment, message, wardrobe_item
+  targetId   String
+  userId     String?  // User who created the content
+  status     String   // pending, approved, rejected
+  reason     String?
+  reviewedBy String?  // Admin user ID
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([targetType, targetId])
+  @@index([status])
+  @@index([createdAt])
 }

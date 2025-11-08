@@ -1,105 +1,21 @@
 'use client';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Re-export session management from new API system
+export {
+  API_URL,
+  setSession,
+  restore,
+  getAccessToken,
+  getRefreshToken,
+  getCurrentUserId,
+  ensureAccess,
+  tryRefresh,
+  clearSession
+} from './api/session';
 
-/** ===== Session (memory + localStorage) ===== */
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
-let currentUserId: string | null = null;
+// Import for internal use
+import { API_URL, getAccessToken, ensureAccess, tryRefresh, clearSession } from './api/session';
 
-type SessionPayload = { accessToken: string; refreshToken: string; userId: string };
-
-export function setSession(a?: SessionPayload) {
-  accessToken = a?.accessToken ?? null;
-  refreshToken = a?.refreshToken ?? null;
-  currentUserId = a?.userId ?? null;
-
-  if (typeof window !== 'undefined') {
-    if (refreshToken) localStorage.setItem('sg_refresh', refreshToken);
-    else localStorage.removeItem('sg_refresh');
-
-    if (currentUserId) localStorage.setItem('sg_uid', currentUserId);
-    else localStorage.removeItem('sg_uid');
-  }
-}
-
-/** Sayfa yenilendiğinde refresh/uid geri yükle (access sadece memory'de tutulur) */
-export function restore() {
-  if (typeof window === 'undefined') return;
-  refreshToken = localStorage.getItem('sg_refresh');
-  currentUserId = localStorage.getItem('sg_uid');
-}
-
-/** ===== Low-level fetch (401 → refresh retry) ===== */
-
-let refreshing: Promise<boolean> | null = null;
-
-/** İlk istekten önce access yoksa ve LS’de refresh varsa proaktif yenileme */
-async function ensureAccess() {
-  if (!accessToken) {
-    if (!refreshToken && typeof window !== 'undefined') {
-      refreshToken = localStorage.getItem('sg_refresh');
-      currentUserId = localStorage.getItem('sg_uid');
-    }
-    if (refreshToken) {
-      await tryRefresh();
-    }
-  }
-}
-
-/** Backend tasarımına göre: refresh, Authorization: Bearer <refreshToken> ile yapılır */
-async function tryRefresh(): Promise<boolean> {
-  if (!refreshToken && typeof window !== 'undefined') {
-    refreshToken = localStorage.getItem('sg_refresh');
-  }
-  if (!refreshToken) return false;
-
-  if (!refreshing) {
-    refreshing = (async () => {
-      const headers = new Headers();
-      headers.set('authorization', `Bearer ${refreshToken}`);
-
-      const r = await fetch(`${API_URL}/auth/refresh`, {
-        method: 'POST',
-        headers,
-      });
-
-      if (!r.ok) {
-        // refresh başarısız → tüm oturum bilgisini temizle
-        setSession(undefined);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('sg_refresh');
-        }
-        return false;
-      }
-
-      const data = (await safeJson(r)) as { accessToken?: string; refreshToken?: string };
-      if (!data?.accessToken) {
-        setSession(undefined);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('sg_refresh');
-        }
-        return false;
-      }
-
-      // access token RAM'e
-      accessToken = data.accessToken ?? null;
-
-      // refresh rotasyonu geldiyse LS'e yaz
-      if (data.refreshToken) {
-        refreshToken = data.refreshToken;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('sg_refresh', refreshToken);
-        }
-      }
-
-      return !!accessToken;
-    })().finally(() => {
-      refreshing = null;
-    });
-  }
-  return refreshing;
-}
 
 async function doFetch(path: string, opts: RequestInit = {}, retry = true): Promise<Response> {
   await ensureAccess();
@@ -113,6 +29,7 @@ async function doFetch(path: string, opts: RequestInit = {}, retry = true): Prom
     headers.set('content-type', 'application/json');
   }
 
+  const accessToken = getAccessToken();
   if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
 
   const res = await fetch(`${API_URL}${path}`, {
@@ -127,14 +44,15 @@ async function doFetch(path: string, opts: RequestInit = {}, retry = true): Prom
       if (!isFormData && method !== 'GET' && method !== 'HEAD' && !retryHeaders.has('content-type')) {
         retryHeaders.set('content-type', 'application/json');
       }
-      if (accessToken) retryHeaders.set('authorization', `Bearer ${accessToken}`);
+      const newAccessToken = getAccessToken();
+      if (newAccessToken) retryHeaders.set('authorization', `Bearer ${newAccessToken}`);
 
       return fetch(`${API_URL}${path}`, {
         ...opts,
         headers: retryHeaders,
       });
     } else {
-      setSession(undefined);
+      clearSession();
       throw new Error('UNAUTHORIZED');
     }
   }
@@ -193,42 +111,28 @@ export type ListItemsResponse = {
 
 /** ===== Public API ===== */
 export const api = {
-  /** AUTH */
-  async register(email: string, password: string, name?: string) {
-    const data = await fetchJSON<{
-      accessToken: string;
-      refreshToken: string;
-      user: { id: string; email: string };
-    }>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password, name }) });
-
-    setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, userId: data.user.id });
-    return data;
+  /** HTTP Methods */
+  get<T = unknown>(path: string) {
+    return fetchJSON<T>(path, { method: 'GET' });
   },
 
-  async login(email: string, password: string) {
-    const data = await fetchJSON<{
-      accessToken: string;
-      refreshToken: string;
-      user: { id: string; email: string };
-    }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-
-    setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, userId: data.user.id });
-    return data;
+  post<T = unknown>(path: string, data?: unknown) {
+    return fetchJSON<T>(path, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   },
 
-  async me() {
-    const d = await fetchJSON<{ userId: string; email: string }>('/auth/me');
-    return { id: d.userId, email: d.email } as { id: string; email: string };
+  patch<T = unknown>(path: string, data?: unknown) {
+    return fetchJSON<T>(path, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   },
 
-  async logout() {
-    try {
-      await doFetch('/auth/logout', { method: 'POST' });
-    } catch { /* no-op */ }
-    setSession(undefined);
+  delete<T = unknown>(path: string) {
+    return fetchJSON<T>(path, { method: 'DELETE' });
   },
-
-  restore,
 
   /** FILES */
   files: {

@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { listItems, WardrobeItem } from '@/lib/api';
 import { uploadViaPresign } from '@/lib/upload';
 import { getErrorMessage } from '@/lib/error';
+import { TopBar, StoryBar } from '@/components/layout';
+import { Card, Avatar, Button, Modal } from '@/components/ui';
 
 type Grouped = Record<string, WardrobeItem[]>;
 
 export default function WardrobePage() {
+  const router = useRouter();
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<WardrobeItem | null>(null);
@@ -19,7 +23,7 @@ export default function WardrobePage() {
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  // file input tetiklemek için ref (querySelector yok)
+  // file input tetiklemek için ref
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -50,15 +54,14 @@ export default function WardrobePage() {
 
     try {
       const created = await uploadViaPresign(file, (pct) => setProgress(pct));
-      // Başarı → listeyi yeniden çek (veya başa ekle)
+      // Başarı → listeyi yeniden çek
       await refresh();
       setOpenUploader(false);
       setSelected(created);
     } catch (e: unknown) {
-        setError(getErrorMessage(e) || 'Upload failed');
+      setError(getErrorMessage(e) || 'Upload failed');
     } finally {
       setUploading(false);
-      // progress 100’e gelmediyse yine de sıfırla/sonlandır
       setTimeout(() => setProgress(0), 600);
     }
   }
@@ -66,7 +69,6 @@ export default function WardrobePage() {
   function onChooseFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (f) void handleUploadFile(f);
-    // aynı dosyayı tekrar seçebilmek için reset
     e.currentTarget.value = '';
   }
 
@@ -86,156 +88,252 @@ export default function WardrobePage() {
   }
 
   return (
-    <div className="h-full flex">
-      {/* Sol: içerik */}
-      <div className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">Gardrop</h1>
+    <>
+      {/* Mobile Top Bar */}
+      <TopBar />
 
-          {/* Yeni sayfaya gitmek yerine panel aç/kapa */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setOpenUploader((v) => !v)}
-              className="px-4 py-2 rounded-xl bg-black text-white"
-            >
-              {openUploader ? 'Yüklemeyi Kapat' : '+ Giysi ekle'}
-            </button>
+      <div className="max-w-6xl mx-auto">
+        {/* Story Bar */}
+        <StoryBar />
+
+        {/* Main Content */}
+        <div className="px-4 py-6 space-y-6">
+          {/* Header with Buttons */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Wardrobe</h1>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => router.push('/outfits')}>
+                📦 My Outfits
+              </Button>
+              <Button onClick={() => setOpenUploader(true)}>
+                + Add Item
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Yükleme Paneli (inline) */}
-        {openUploader && (
-          <div className="mb-6 rounded-xl border p-4">
-            <p className="text-sm text-gray-700 mb-3">
-              Dosyanı <strong>presigned PUT</strong> ile MinIO/S3’e yükleyeceğiz, ardından{' '}
-              <strong>POST /files/complete</strong> ile kayıt yapılacak.
-            </p>
+          {/* Quick Actions */}
+          {items.length >= 3 && (
+            <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-purple-900">Ready to create an outfit?</p>
+                  <p className="text-sm text-purple-700">You have {items.length} items in your wardrobe</p>
+                </div>
+                <Button onClick={() => router.push('/outfits/create')}>
+                  ✨ Create Outfit
+                </Button>
+              </div>
+            </Card>
+          )}
 
-            <div className="flex items-center gap-3">
-              <label className="inline-flex items-center px-4 py-2 rounded-xl border cursor-pointer hover:bg-gray-50">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,application/pdf,video/*"
-                  onChange={onChooseFile}
-                  disabled={uploading}
-                  className="hidden"
-                />
-                <span>Dosya seç</span>
-              </label>
+          {/* Loading State */}
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {Object.entries(grouped).map(([group, arr]) => (
+                <section key={group}>
+                  <h2 className="text-xl font-semibold mb-4">{headerName(group)}</h2>
+                  <div className="grid grid-cols-3 gap-1 sm:gap-4">
+                    {arr.map((it) => (
+                      <Card
+                        key={it.id}
+                        hover
+                        onClick={() => setSelected(it)}
+                        className="cursor-pointer overflow-hidden p-0"
+                      >
+                        <div className="relative w-full aspect-square">
+                          <Image
+                            src={it.imageUrl}
+                            alt={it.type ?? 'wardrobe item'}
+                            fill
+                            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="p-3">
+                          <p className="text-sm font-semibold truncate">
+                            {it.brand || 'Unknown Brand'}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {it.color || 'No color'} • {it.size || 'One size'}
+                          </p>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </section>
+              ))}
 
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-2 rounded-lg border"
-                disabled={uploading}
-              >
-                Bilgisayardan Seç
-              </button>
-
-              {uploading && (
-                <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
-                  <div
-                    className="h-full bg-black transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
+              {items.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-lg mb-4">Your wardrobe is empty</p>
+                  <Button onClick={() => setOpenUploader(true)}>
+                    Add your first item
+                  </Button>
                 </div>
               )}
             </div>
-
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-            <ul className="mt-3 text-xs text-gray-600 list-disc ml-5 space-y-1">
-              <li>50 MB üstü dosyalarda daha uzun sürebilir.</li>
-              <li>Bucket private ise görsel görüntülerken süreli GET URL kullanılır.</li>
-            </ul>
-          </div>
-        )}
-
-        {loading ? (
-          <p>Yükleniyor…</p>
-        ) : (
-          <div className="space-y-10">
-            {Object.entries(grouped).map(([group, arr]) => (
-              <section key={group}>
-                <h2 className="text-lg font-medium mb-3 capitalize">{headerName(group)}</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                  {arr.map((it) => (
-                    <button
-                      key={it.id}
-                      onClick={() => setSelected(it)}
-                      className="group relative rounded-xl overflow-hidden border"
-                    >
-                      <div className="relative h-44 w-full">
-                        <Image
-                          src={it.imageUrl}
-                          alt={it.type ?? 'wardrobe item'}
-                          fill
-                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                          className="object-cover group-hover:scale-105 transition-transform"
-                          unoptimized
-                        />
-                      </div>
-                      <div className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-xs p-2">
-                        {it.brand || '—'} • {it.color || '—'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Sağ: detay paneli */}
-      <aside
-        className={`w-[380px] border-l bg-white transition-transform duration-200 ${
-          selected ? 'translate-x-0' : 'translate-x-full'
-        }`}
+      {/* Upload Modal */}
+      <Modal
+        isOpen={openUploader}
+        onClose={() => setOpenUploader(false)}
+        title="Upload New Item"
+        size="md"
       >
-        <div className="p-4 flex items-center justify-between">
-          <h3 className="font-medium">Detay</h3>
-          <button className="text-sm text-gray-500" onClick={() => setSelected(null)}>
-            Kapat
-          </button>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Upload your wardrobe item. The file will be uploaded using presigned PUT to MinIO/S3,
+            then registered via POST /files/complete.
+          </p>
+
+          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-500 transition-colors">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,video/*"
+              onChange={onChooseFile}
+              disabled={uploading}
+              className="hidden"
+            />
+            <div className="space-y-3">
+              <div className="text-4xl">📸</div>
+              <div>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  fullWidth
+                >
+                  {uploading ? 'Uploading...' : 'Choose File'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {uploading && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Uploading...</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          <ul className="text-xs text-gray-500 space-y-1">
+            <li>• Files over 50 MB may take longer to upload</li>
+            <li>• Private bucket files use presigned GET URLs for display</li>
+          </ul>
         </div>
-        {selected ? (
-          <div className="p-4 space-y-4">
-            <div className="rounded-xl overflow-hidden border">
-              <div className="relative w-full" style={{ aspectRatio: '3 / 4' }}>
+      </Modal>
+
+      {/* Item Detail Modal */}
+      <Modal
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title="Item Details"
+        size="lg"
+      >
+        {selected && (
+          <div className="space-y-6">
+            {/* Item Image */}
+            <div className="rounded-xl overflow-hidden border border-gray-200">
+              <div className="relative w-full aspect-square">
                 <Image
                   src={selected.imageUrl}
                   alt={selected.type ?? 'selected item'}
                   fill
-                  sizes="380px"
+                  sizes="600px"
                   className="object-cover"
                   unoptimized
                 />
               </div>
             </div>
-            <dl className="text-sm grid grid-cols-2 gap-y-2">
-              <dt className="text-gray-500">Tür</dt>
-              <dd className="font-medium capitalize">{selected.type}</dd>
-              <dt className="text-gray-500">Marka</dt>
-              <dd className="font-medium">{selected.brand || '—'}</dd>
-              <dt className="text-gray-500">Renk</dt>
-              <dd className="font-medium">{selected.color || '—'}</dd>
-              <dt className="text-gray-500">Materyal</dt>
-              <dd className="font-medium">{selected.material || '—'}</dd>
-              <dt className="text-gray-500">Beden</dt>
-              <dd className="font-medium">{selected.size || '—'}</dd>
-              <dt className="text-gray-500">Sezon</dt>
-              <dd className="font-medium">{selected.season || '—'}</dd>
-              <dt className="text-gray-500">Etiketler</dt>
-              <dd className="font-medium">
-                {(selected.styleTags || []).join(', ') || '—'}
-              </dd>
-            </dl>
+
+            {/* Item Info - Instagram Style */}
+            <div className="space-y-4">
+              {/* Header with Avatar */}
+              <div className="flex items-center gap-3">
+                <Avatar alt="Your Wardrobe" size="md" />
+                <div>
+                  <p className="font-semibold">{selected.brand || 'Unknown Brand'}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(selected.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Metadata Grid */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Type</p>
+                  <p className="font-medium capitalize">{selected.type}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Brand</p>
+                  <p className="font-medium">{selected.brand || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Color</p>
+                  <p className="font-medium">{selected.color || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Material</p>
+                  <p className="font-medium">{selected.material || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Size</p>
+                  <p className="font-medium">{selected.size || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Season</p>
+                  <p className="font-medium">{selected.season || '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-500 mb-1">Tags</p>
+                  <p className="font-medium">
+                    {(selected.styleTags || []).join(', ') || '—'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions - Instagram Style */}
+              <div className="flex items-center gap-4 pt-4 border-t">
+                <button className="flex items-center gap-2 text-gray-600 hover:text-red-500 transition-colors">
+                  <span className="text-2xl">❤️</span>
+                  <span className="text-sm font-semibold">Like</span>
+                </button>
+                <button className="flex items-center gap-2 text-gray-600 hover:text-blue-500 transition-colors">
+                  <span className="text-2xl">💬</span>
+                  <span className="text-sm font-semibold">Comment</span>
+                </button>
+                <button className="flex items-center gap-2 text-gray-600 hover:text-purple-500 transition-colors ml-auto">
+                  <span className="text-2xl">🔖</span>
+                  <span className="text-sm font-semibold">Save</span>
+                </button>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="p-4 text-sm text-gray-500">Bir öğeye tıkla</div>
         )}
-      </aside>
-    </div>
+      </Modal>
+    </>
   );
 }

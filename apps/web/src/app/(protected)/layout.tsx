@@ -1,9 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { auth } from '@/lib/api/auth';
+import { restore } from '@/lib/api/session';
+import { Sidebar, BottomNav } from '@/components/layout';
+import { FloatingMessageBox } from '@/components/messages';
+import { SocketProvider } from '@/contexts/SocketContext';
 
 type Me = { id: string; email: string };
 
@@ -17,8 +20,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     let alive = true;
     (async () => {
       try {
-        api.restore();
-        const u = await api.me();
+        restore();
+        const u = await auth.me();
         if (!alive) return;
         setMe(u);
         setReady(true);
@@ -38,78 +41,44 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         router.replace(`/login?next=${next}`);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [router, pathname]);
 
+  const handleLogout = async () => {
+    await auth.logout();
+    router.replace('/login');
+  };
+
   if (!ready) {
-    return <div style={{ padding: 24 }}>Loading…</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  const links = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/explore', label: 'Explore' },
-    { href: '/wardrobe', label: 'Wardrobe' },
-    { href: '/messages', label: 'Messages' },
-    { href: '/profile',  label: 'Profile'  },
-  ];
-
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      <nav
-        style={{
-          display: 'flex',
-          gap: 12,
-          padding: '12px 16px',
-          borderBottom: '1px solid #eee',
-          alignItems: 'center',
-        }}
-      >
-        {links.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            style={{ textDecoration: pathname === l.href ? 'underline' : 'none' }}
-          >
-            {l.label}
-          </Link>
-        ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span>{me?.email ?? 'guest'}</span>
-          {me ? (
-            <button
-              onClick={async () => {
-                await api.logout();
-                router.replace('/login');
-              }}
-              style={{
-                border: '1px solid #ddd',
-                padding: '4px 10px',
-                borderRadius: 6,
-                background: 'white',
-                cursor: 'pointer',
-              }}
-            >
-              Logout
-            </button>
-          ) : (
-            <Link
-              href={`/login?next=${encodeURIComponent(pathname || '/upload')}`}
-              style={{
-                border: '1px solid #ddd',
-                padding: '4px 10px',
-                borderRadius: 6,
-                background: 'white',
-              }}
-            >
-              Login
-            </Link>
-          )}
-        </div>
-      </nav>
+    <SocketProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Desktop Sidebar */}
+        <Sidebar user={me || undefined} onLogout={handleLogout} />
 
-      {/* /upload'ta misafirken presign 401 alırsın; ama sayfa login'e atmaz.
-          UploadOptions içinde login formu veya yönlendirme linki gösterebilirsin. */}
-      <main style={{ padding: 24 }}>{children}</main>
-    </div>
+        {/* Main Content */}
+        <div className="lg:ml-64 min-h-screen pb-16 lg:pb-0">
+          {children}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <BottomNav />
+
+        {/* Floating Message Box - Hidden on messages page */}
+        {pathname !== '/messages' && <FloatingMessageBox />}
+      </div>
+    </SocketProvider>
   );
 }

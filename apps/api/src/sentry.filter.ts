@@ -17,6 +17,12 @@ export class SentryExceptionFilter implements ExceptionFilter {
     const status =
       exception instanceof HttpException ? exception.getStatus() : 500;
 
+    // Log hatayı her zaman console'a yaz (development için)
+    console.error('🔴 Exception caught:', exception);
+    if (exception instanceof Error) {
+      console.error('Stack:', exception.stack);
+    }
+
     if (process.env.SENTRY_DSN) {
       Sentry.captureException(exception, {
         tags: { scope: 'http' },
