@@ -31,9 +31,13 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   me(@Req() req: Request) {
-    const userId = String(req.user?.id ?? req.user?.sub ?? '');
-    const email = req.user?.email ?? '';
-    if (!userId) throw new UnauthorizedException('Unauthorized');
+    const user = req.user as { id?: string; sub?: string; email?: string } | undefined;
+    const userId = user?.sub || user?.id || '';
+    const email = user?.email || '';
+    if (!userId) {
+      console.error('[auth.controller /me] No userId found. req.user:', req.user);
+      throw new UnauthorizedException('Unauthorized: User ID not found');
+    }
     return { userId, email };
   }
 

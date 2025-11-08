@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
-import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { fetchJSON } from '@/lib/api/client';
 
 export default function Home() {
   const router = useRouter();
@@ -9,8 +9,8 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        api.restore();
-        await api.me();
+        // Check if user is authenticated
+        await fetchJSON('/auth/me');
         // Kullanıcı giriş yaptıysa Dashboard'a yönlendir
         router.replace('/dashboard');
       } catch {

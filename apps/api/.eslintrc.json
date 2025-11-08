@@ -1,0 +1,11 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": ["eslint:recommended"],
+  "ignorePatterns": ["dist", "node_modules"],
+  "rules": {
+    "no-unused-vars": "off",
+    "no-undef": "off"
+  }
+}

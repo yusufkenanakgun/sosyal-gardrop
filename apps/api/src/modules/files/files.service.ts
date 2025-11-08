@@ -179,7 +179,7 @@ export class FilesService {
     }
   }
 
-  /** Upload tamamla -> DB’ye randomized WardrobeItem insert */
+  /** Upload tamamla -> DB'ye randomized WardrobeItem insert */
   async completeAndCreateItem(
     userId: string,
     email: string | undefined,
@@ -208,10 +208,10 @@ export class FilesService {
 
     const sql = `
       INSERT INTO "WardrobeItem"
-        (id, "userId", type, brand, color, material, season, "styleTags", size, "imageUrl", "bgRemovedUrl", "labelsJSON")
+        (id, "userId", type, brand, color, material, season, "styleTags", size, "imageUrl", "bgRemovedUrl", "labelsJSON", "createdAt", "updatedAt")
       VALUES
-        ($1, $2,   $3,   $4,   $5,    $6,     $7,      $8,          $9,   $10,       $11,           $12)
-      RETURNING id, "userId", type, brand, color, material, season, "styleTags", size, "imageUrl", "bgRemovedUrl", "labelsJSON", "createdAt";
+        ($1, $2,   $3,   $4,   $5,    $6,     $7,      $8,          $9,   $10,       $11,           $12,          NOW(),       NOW())
+      RETURNING id, "userId", type, brand, color, material, season, "styleTags", size, "imageUrl", "bgRemovedUrl", "labelsJSON", "createdAt", "updatedAt";
     `;
 
     const params = [
@@ -295,5 +295,55 @@ export class FilesService {
     } catch {
       throw new InternalServerErrorException('Failed to generate download URL');
     }
+  }
+
+  /** Avatar için özel presigned URL oluştur */
+  async generatePresignedUpload(
+    filename: string,
+    contentType: string,
+    email: string,
+    purpose: 'avatar' | 'wardrobe' = 'wardrobe',
+  ): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+    const allowed = this.allowedMimePrefixes;
+    if (!allowed.some((p) => contentType.startsWith(p))) {
+      throw new BadRequestException(`MIME type not supported: ${contentType}`);
+    }
+
+    const ext = filename.includes('.') ? filename.split('.').pop() : undefined;
+    const uuid = randomUUID();
+    const safe = (s: string) => s.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+
+    const key = purpose === 'avatar'
+      ? `users/${safe(email)}/avatar/${uuid}${ext ? '.' + ext : ''}`
+      : `users/${safe(email)}/wardrobe/${new Date().toISOString().slice(0, 10)}/${uuid}${ext ? '.' + ext : ''}`;
+
+    const put = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const expiresIn = Number(process.env.S3_PRESIGN_PUT_TTL ?? 300);
+    const uploadUrl = await getSignedUrl(getS3Client(), put, { expiresIn });
+    const publicUrl = `${this.endpoint}/${this.bucket}/${key}`;
+
+    return { uploadUrl, key, publicUrl };
+  }
+
+  /** Dosyanın S3'te olup olmadığını kontrol et */
+  async verifyFileExists(key: string): Promise<boolean> {
+    try {
+      await getS3Client().send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Public URL oluştur */
+  getPublicUrl(key: string): string {
+    return `${this.endpoint}/${this.bucket}/${key}`;
   }
 }

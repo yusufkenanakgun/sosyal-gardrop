@@ -8,7 +8,12 @@ import { z } from 'zod';
 import { BootstrapCheckService } from './bootstrap-check.service';
 import * as path from 'path';
 import * as fs from 'fs';
-import { FilesModule } from './modules/files/files.module'; // ✅ eklendi
+import { FilesModule } from './modules/files/files.module';
+import { MessagesModule } from './modules/messages/messages.module';
+import { PostsModule } from './modules/posts/posts.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { UsersModule } from './users/users.module';
+import { OutfitsModule } from './modules/outfits/outfits.module';
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
@@ -74,7 +79,12 @@ if (existingEnvFiles.length === 0) {
       },
     }),
     HealthModule,
-    FilesModule, // ✅ eklendi
+    FilesModule,
+    MessagesModule,
+    PostsModule,
+    NotificationsModule,
+    UsersModule,
+    OutfitsModule,
   ],
   controllers: [AppController],
   providers: [AppService, BootstrapCheckService],
